@@ -5,6 +5,7 @@ from aiohttp import web
 from telegram import Bot
 
 import db
+from config import config
 from handlers import download_and_deliver
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,8 @@ async def _download(request: web.Request) -> web.Response:
     user_id = db.get_user_id_by_api_key(auth)
     if user_id is None:
         return web.Response(status=403, text="Invalid API key")
+    if config.allowed_user_ids is not None and user_id not in config.allowed_user_ids:
+        return web.Response(status=403, text="User not permitted")
 
     try:
         body = await request.json()

@@ -154,6 +154,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if message is None:
         return
 
+    user = update.effective_user
+    if config.allowed_user_ids is not None and (user is None or user.id not in config.allowed_user_ids):
+        return
+
     text = message.text or message.caption or ""
     urls = URL_RE.findall(text)
     logger.info("Message received: %d URL(s) found", len(urls))

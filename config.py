@@ -14,12 +14,17 @@ class Config:
     tiktok_cookies_file: str | None
     tumblr_api_key: str | None
     db_path: str
+    allowed_user_ids: frozenset[int] | None
 
     @classmethod
     def load(cls) -> Config:
         token = os.environ.get("BOT_TOKEN")
         if not token:
             raise RuntimeError("BOT_TOKEN environment variable is required")
+        raw_allowlist = os.environ.get("ALLOWED_USER_IDS", "").strip()
+        allowed_user_ids: frozenset[int] | None = None
+        if raw_allowlist:
+            allowed_user_ids = frozenset(int(uid) for uid in raw_allowlist.split(",") if uid.strip())
         return cls(
             bot_token=token,
             download_dir=os.environ.get("DOWNLOAD_DIR", "/tmp/pyvd"),
@@ -27,6 +32,7 @@ class Config:
             tiktok_cookies_file=os.environ.get("TIKTOK_COOKIES_FILE"),
             tumblr_api_key=os.environ.get("TUMBLR_API_KEY"),
             db_path=os.environ.get("DB_PATH", "pyvd.db"),
+            allowed_user_ids=allowed_user_ids,
         )
 
 
