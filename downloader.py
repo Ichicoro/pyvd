@@ -76,18 +76,37 @@ def _fetch_url(item: MediaItem, dest: Path) -> None:
     last_exc: Exception | None = None
     for url in item.urls:
         try:
-            req = urllib.request.Request(
-                url,
-                headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
-            )
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                with open(dest, "wb") as f:
-                    shutil.copyfileobj(resp, f)
+            if url.endswith(".m3u8") or "playlist.m3u8" in url:
+                _fetch_hls(url, dest)
+            else:
+                req = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
+                )
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    with open(dest, "wb") as f:
+                        shutil.copyfileobj(resp, f)
             return
         except Exception as exc:
             last_exc = exc
             logger.warning("Failed to fetch %s: %s", url, exc)
     raise RuntimeError(f"all URLs failed for item: {last_exc}")
+
+
+def _fetch_hls(url: str, dest: Path) -> None:
+    ydl_opts = {
+        "outtmpl": str(dest.parent / dest.stem) + ".%(ext)s",
+        "quiet": True,
+        "no_warnings": True,
+        "merge_output_format": "mp4",
+        "format": "best[ext=mp4]/best",
+        "nopart": True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+    expected = dest.with_suffix(".mp4")
+    if expected != dest and expected.exists():
+        expected.rename(dest)
 
 
 def _do_ytdlp(url: str, dest: Path, cookies_file: str | None) -> list[Path]:

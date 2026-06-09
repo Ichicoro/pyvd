@@ -6,6 +6,7 @@ from typing import Callable
 from config import config
 import nitter
 import instagram
+import bluesky
 from models import MediaResult
 
 
@@ -37,6 +38,14 @@ EXTRACTORS: list[Extractor] = [
             r"https?://(?:www\.)?(?:dd)?instagram\.com/(?:p|reel|reels|tv|stories)/\S+"
         ),
         extract=instagram.extract,
+    ),
+    Extractor(
+        name="bluesky",
+        display_name="Bluesky",
+        pattern=re.compile(
+            r"https?://(?:bsky|witchsky)\.app/profile/[^/]+/post/[a-zA-Z0-9]+"
+        ),
+        extract=bluesky.extract,
     ),
     Extractor(
         name="tiktok",
