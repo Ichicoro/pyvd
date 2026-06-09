@@ -50,7 +50,7 @@ def _run_download(
 
 def download_blocking(
     url: str,
-    base_dir: str = "/tmp/pygovd",
+    base_dir: str = "/tmp/pyvd",
     cookies_file: str | None = None,
     url_transform: Callable[[str], str] | None = None,
     extract: Callable[[str], MediaResult] | None = None,
@@ -69,7 +69,7 @@ def download_blocking(
 @contextmanager
 def download(
     url: str,
-    base_dir: str = "/tmp/pygovd",
+    base_dir: str = "/tmp/pyvd",
     cookies_file: str | None = None,
     url_transform: Callable[[str], str] | None = None,
     extract: Callable[[str], MediaResult] | None = None,

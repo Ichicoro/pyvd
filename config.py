@@ -22,11 +22,11 @@ class Config:
             raise RuntimeError("BOT_TOKEN environment variable is required")
         return cls(
             bot_token=token,
-            download_dir=os.environ.get("DOWNLOAD_DIR", "/tmp/pygovd"),
+            download_dir=os.environ.get("DOWNLOAD_DIR", "/tmp/pyvd"),
             max_file_size=int(os.environ.get("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024,
             tiktok_cookies_file=os.environ.get("TIKTOK_COOKIES_FILE"),
             tumblr_api_key=os.environ.get("TUMBLR_API_KEY"),
-            db_path=os.environ.get("DB_PATH", "pygovd.db"),
+            db_path=os.environ.get("DB_PATH", "pyvd.db"),
         )
 
 

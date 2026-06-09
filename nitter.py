@@ -20,7 +20,7 @@ _CACHE_TTL = 300.0
 
 
 def _fetch_instances() -> list[dict]:
-    req = urllib.request.Request(STATUS_API, headers={"User-Agent": "pygovd/1.0"})
+    req = urllib.request.Request(STATUS_API, headers={"User-Agent": "pyvd/1.0"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         data = json.loads(resp.read())
     if isinstance(data, list):

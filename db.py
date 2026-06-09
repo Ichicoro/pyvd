@@ -2,7 +2,7 @@ from __future__ import annotations
 import secrets
 import sqlite3
 
-_db_path: str = "pygovd.db"
+_db_path: str = "pyvd.db"
 
 
 def init(path: str) -> None:
