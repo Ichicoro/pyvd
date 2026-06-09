@@ -11,6 +11,7 @@ class Config:
     bot_token: str
     download_dir: str
     max_file_size: int
+    instagram_cookies_file: str | None
     tiktok_cookies_file: str | None
     tumblr_api_key: str | None
     db_path: str
@@ -29,6 +30,7 @@ class Config:
             bot_token=token,
             download_dir=os.environ.get("DOWNLOAD_DIR", "/tmp/pyvd"),
             max_file_size=int(os.environ.get("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024,
+            instagram_cookies_file=os.environ.get("INSTAGRAM_COOKIES_FILE"),
             tiktok_cookies_file=os.environ.get("TIKTOK_COOKIES_FILE"),
             tumblr_api_key=os.environ.get("TUMBLR_API_KEY"),
             db_path=os.environ.get("DB_PATH", "pyvd.db"),

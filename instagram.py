@@ -1,6 +1,7 @@
 from __future__ import annotations
 import hashlib
 import hmac
+import http.cookiejar
 import json
 import logging
 import os
@@ -11,6 +12,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+import yt_dlp
 
 from models import MediaItem, MediaResult
 
@@ -53,6 +56,14 @@ IGRAM_EXTRA_HEADERS = {
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
+
+def _cookie_header(cookies_file: str) -> str:
+    jar = http.cookiejar.MozillaCookieJar(cookies_file)
+    jar.load(ignore_discard=True, ignore_expires=True)
+    return "; ".join(
+        f"{c.name}={c.value}" for c in jar if c.domain.endswith("instagram.com")
+    )
+
 
 def _random_base64(n: int) -> str:
     return "".join(random.choices(_BASE64_CHARS, k=n))
@@ -157,8 +168,10 @@ def _build_gql_request(shortcode: str) -> tuple[dict, bytes]:
     return headers, body
 
 
-def _gql_media(shortcode: str) -> MediaResult:
+def _gql_media(shortcode: str, cookie_header: str | None = None) -> MediaResult:
     headers, body = _build_gql_request(shortcode)
+    if cookie_header:
+        headers["cookie"] = headers.get("cookie", "") + "; " + cookie_header
     raw = _post(GRAPHQL_ENDPOINT, body, headers)
     resp = json.loads(raw)
 
@@ -194,9 +207,10 @@ def _gql_media(shortcode: str) -> MediaResult:
 
 # ── method 2: embed page ───────────────────────────────────────────────────────
 
-def _embed_media(shortcode: str) -> MediaResult:
+def _embed_media(shortcode: str, cookie_header: str | None = None) -> MediaResult:
     embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned"
-    raw = _get(embed_url, WEB_HEADERS).decode(errors="replace")
+    headers = {**WEB_HEADERS, **({"Cookie": cookie_header} if cookie_header else {})}
+    raw = _get(embed_url, headers).decode(errors="replace")
 
     m = CONTEXT_JSON_RE.search(raw)
     if not m:
@@ -205,7 +219,7 @@ def _embed_media(shortcode: str) -> MediaResult:
     context_str = json.loads(f'"{m.group(1)}"')
     ctx = json.loads(context_str)
 
-    node = ctx.get("gql_data", {}).get("shortcode_media")
+    node = (ctx.get("gql_data") or {}).get("shortcode_media")
     if not node:
         raise ValueError("shortcode_media not found in contextJSON")
 
@@ -305,18 +319,55 @@ def _igram_media(shortcode: str) -> MediaResult:
     return result
 
 
+# ── method 4: yt-dlp ──────────────────────────────────────────────────────────
+
+def _ytdlp_media(shortcode: str, cookies_file: str | None = None) -> MediaResult:
+    url = f"https://www.instagram.com/p/{shortcode}/"
+    ydl_opts: dict = {"quiet": True, "no_warnings": True, "skip_download": True}
+    if cookies_file:
+        ydl_opts["cookiefile"] = cookies_file
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    entries = info.get("entries") or [info]
+    result = MediaResult()
+    for entry in entries:
+        video_url = entry.get("url") or next(
+            (f["url"] for f in reversed(entry.get("formats", [])) if f.get("url")), None
+        )
+        if video_url:
+            result.items.append(MediaItem(urls=[video_url], type="video"))
+        elif entry.get("thumbnail"):
+            result.items.append(MediaItem(urls=[entry["thumbnail"]], type="photo"))
+
+    if not result.items:
+        raise ValueError("no media from yt-dlp")
+    return result
+
+
 # ── public entry point ─────────────────────────────────────────────────────────
 
 def extract(url: str) -> MediaResult:
+    from config import config
+
     m = SHORTCODE_RE.search(url)
     if not m:
         raise ValueError(f"could not extract Instagram shortcode from: {url}")
     shortcode = m.group(1)
 
+    cookies_file = config.instagram_cookies_file
+    cookie_hdr: str | None = None
+    if cookies_file and os.path.exists(cookies_file):
+        try:
+            cookie_hdr = _cookie_header(cookies_file)
+        except Exception as exc:
+            logger.warning("Failed to load Instagram cookies: %s", exc)
+
     for method_name, method in [
-        ("GQL", lambda: _gql_media(shortcode)),
-        ("embed", lambda: _embed_media(shortcode)),
+        ("GQL", lambda: _gql_media(shortcode, cookie_hdr)),
+        ("embed", lambda: _embed_media(shortcode, cookie_hdr)),
         ("IGram", lambda: _igram_media(shortcode)),
+        ("yt-dlp", lambda: _ytdlp_media(shortcode, cookies_file)),
     ]:
         try:
             result = method()
