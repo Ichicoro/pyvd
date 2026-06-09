@@ -7,6 +7,7 @@ from config import config
 import nitter
 import instagram
 import bluesky
+import tumblr
 from models import MediaResult
 
 
@@ -53,6 +54,14 @@ EXTRACTORS: list[Extractor] = [
         pattern=re.compile(
             r"https?://(?:(?:www\.|m\.)?youtube\.com/(?:watch|shorts|live)|youtu\.be/)\S+"
         ),
+    ),
+    Extractor(
+        name="tumblr",
+        display_name="Tumblr",
+        pattern=re.compile(
+            r"https?://(?:www\.tumblr\.com/[^/?#]+/\d+|[^./?#]+\.tumblr\.com/post/\d+)"
+        ),
+        extract=tumblr.extract,
     ),
     Extractor(
         name="tiktok",

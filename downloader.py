@@ -76,7 +76,7 @@ def _fetch_url(item: MediaItem, dest: Path) -> None:
     last_exc: Exception | None = None
     for url in item.urls:
         try:
-            if url.endswith(".m3u8") or "playlist.m3u8" in url:
+            if url.endswith(".m3u8") or "playlist.m3u8" in url or url.endswith(".mpd") or "DASHPlaylist" in url:
                 _fetch_hls(url, dest)
             else:
                 req = urllib.request.Request(
