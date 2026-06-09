@@ -41,9 +41,11 @@ async def _download(request: web.Request) -> web.Response:
     try:
         await download_and_deliver(bot, user_id, url)
     except ValueError as exc:
+        await bot.send_message(user_id, f"❌ {exc}\n{url}")
         return web.Response(status=422, text=str(exc))
     except Exception as exc:
         logger.error("API download failed for %s: %s", url, exc, exc_info=True)
+        await bot.send_message(user_id, f"❌ Download failed: {exc}\n{url}")
         return web.Response(status=500, text=f"Download failed: {exc}")
 
     return web.Response(status=200, text="OK")
