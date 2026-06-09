@@ -3,10 +3,12 @@ import asyncio
 import logging
 import signal
 
-from telegram.ext import Application, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
+import db
 from config import config
-from handlers import handle_message
+from handlers import handle_apikey, handle_message, handle_resetapikey
+from server import start_server
 
 logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
@@ -18,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 async def _run() -> None:
+    db.init(config.db_path)
     app = Application.builder().token(config.bot_token).build()
+    app.add_handler(CommandHandler("apikey", handle_apikey))
+    app.add_handler(CommandHandler("resetapikey", handle_resetapikey))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.CAPTION, handle_message))
 
@@ -32,7 +37,13 @@ async def _run() -> None:
         assert app.updater is not None
         await app.updater.start_polling(drop_pending_updates=True)
         logger.info("Bot started")
-        await stop.wait()
+
+        runner = await start_server(app.bot)
+        try:
+            await stop.wait()
+        finally:
+            await runner.cleanup()
+
         await app.updater.stop()
         await app.stop()
 

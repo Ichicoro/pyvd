@@ -6,10 +6,11 @@ import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from telegram import Update, InputMediaVideo, InputMediaPhoto, InputMediaDocument
+from telegram import Bot, Update, InputMediaVideo, InputMediaPhoto, InputMediaDocument
 from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
+import db
 from config import config
 from downloader import download_blocking, file_type
 from extractors import find_extractor
@@ -21,7 +22,7 @@ MAX_ALBUM_SIZE = 10
 
 
 @asynccontextmanager
-async def _chat_action(bot, chat_id: int, action: ChatAction):
+async def _chat_action(bot: Bot, chat_id: int, action: ChatAction):
     async def _repeat():
         while True:
             await bot.send_chat_action(chat_id=chat_id, action=action)
@@ -47,77 +48,22 @@ def _upload_action(files: list[Path]) -> ChatAction:
     return ChatAction.UPLOAD_VIDEO
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    message = update.effective_message
-    if message is None:
-        return
-
-    text = message.text or message.caption or ""
-    urls = URL_RE.findall(text)
-    logger.info("Message received: %d URL(s) found", len(urls))
-
-    bot = context.bot
-    chat_id = message.chat_id
-
-    unsupported: list[str] = []
-    for raw_url in urls:
-        url = raw_url if raw_url.startswith("http") else f"https://{raw_url}"
-        extractor = find_extractor(url)
-        if extractor is None:
-            logger.info("No extractor for URL: %s", url)
-            unsupported.append(url)
-            continue
-
-        status = await message.reply_text(f"⬇️ Downloading from {extractor.display_name}...")
-        session_dir = None
-        try:
-            async with _chat_action(bot, chat_id, ChatAction.TYPING):
-                session_dir, files = await asyncio.to_thread(
-                    download_blocking,
-                    url,
-                    config.download_dir,
-                    extractor.cookies_file,
-                    extractor.url_transform,
-                    extractor.extract,
-                )
-
-            if not files:
-                await status.edit_text("No media found.")
-                continue
-
-            sendable = [f for f in files if f.stat().st_size <= config.max_file_size]
-            skipped = len(files) - len(sendable)
-
-            if not sendable:
-                limit_mb = config.max_file_size // 1024 // 1024
-                await status.edit_text(f"All files exceed {limit_mb}MB limit.")
-                continue
-
-            reply_url = extractor.reply_url(url) if extractor.reply_url else url
-            async with _chat_action(bot, chat_id, _upload_action(sendable)):
-                await _send_files(update, sendable, caption=reply_url)
-            await status.delete()
-
-            if skipped:
-                await message.reply_text(f"⚠️ {skipped} file(s) skipped (too large).")
-
-        except Exception as exc:
-            logger.error("Download failed for %s: %s", url, exc, exc_info=True)
-            await status.edit_text(f"❌ Failed: {exc}")
-        finally:
-            if session_dir is not None:
-                await asyncio.to_thread(shutil.rmtree, session_dir, True)
-
-    if unsupported:
-        lines = "\n".join(f"• {u}" for u in unsupported)
-        await message.reply_text(f"⚠️ Unsupported URL(s):\n{lines}")
+async def _send_to_chat(bot: Bot, chat_id: int, path: Path, caption: str | None = None) -> None:
+    ftype = file_type(path)
+    with open(path, "rb") as fh:
+        if ftype == "video":
+            await bot.send_video(chat_id, fh, supports_streaming=True, caption=caption, write_timeout=120)
+        elif ftype == "photo":
+            await bot.send_photo(chat_id, fh, caption=caption, write_timeout=120)
+        elif ftype == "audio":
+            await bot.send_audio(chat_id, fh, caption=caption, write_timeout=120)
+        else:
+            await bot.send_document(chat_id, fh, caption=caption, write_timeout=120)
 
 
-async def _send_files(update: Update, files: list[Path], caption: str | None = None) -> None:
-    message = update.effective_message
-
+async def _send_files_to_chat(bot: Bot, chat_id: int, files: list[Path], caption: str | None = None) -> None:
     if len(files) == 1:
-        await _send_single(message, files[0], caption=caption)
+        await _send_to_chat(bot, chat_id, files[0], caption=caption)
         return
 
     for i in range(0, len(files), MAX_ALBUM_SIZE):
@@ -136,20 +82,101 @@ async def _send_files(update: Update, files: list[Path], caption: str | None = N
                     media_group.append(InputMediaPhoto(fh, caption=item_caption))
                 else:
                     media_group.append(InputMediaDocument(fh, caption=item_caption))
-            await message.reply_media_group(media_group, write_timeout=120)
+            await bot.send_media_group(chat_id, media_group, write_timeout=120)
         finally:
             for fh in opened:
                 fh.close()
 
 
-async def _send_single(message, path: Path, caption: str | None = None) -> None:
-    ftype = file_type(path)
-    with open(path, "rb") as fh:
-        if ftype == "video":
-            await message.reply_video(fh, supports_streaming=True, caption=caption, write_timeout=120)
-        elif ftype == "photo":
-            await message.reply_photo(fh, caption=caption, write_timeout=120)
-        elif ftype == "audio":
-            await message.reply_audio(fh, caption=caption, write_timeout=120)
-        else:
-            await message.reply_document(fh, caption=caption, write_timeout=120)
+async def download_and_deliver(bot: Bot, chat_id: int, url: str) -> None:
+    """Download url and send resulting files to chat_id. Raises on failure."""
+    extractor = find_extractor(url)
+    if extractor is None:
+        raise ValueError(f"Unsupported URL: {url}")
+
+    session_dir = None
+    try:
+        async with _chat_action(bot, chat_id, ChatAction.TYPING):
+            session_dir, files = await asyncio.to_thread(
+                download_blocking,
+                url,
+                config.download_dir,
+                extractor.cookies_file,
+                extractor.url_transform,
+                extractor.extract,
+            )
+
+        if not files:
+            raise ValueError("No media found")
+
+        sendable = [f for f in files if f.stat().st_size <= config.max_file_size]
+        if not sendable:
+            limit_mb = config.max_file_size // 1024 // 1024
+            raise ValueError(f"All files exceed {limit_mb}MB limit")
+
+        caption = extractor.reply_url(url) if extractor.reply_url else url
+        async with _chat_action(bot, chat_id, _upload_action(sendable)):
+            await _send_files_to_chat(bot, chat_id, sendable, caption=caption)
+
+        skipped = len(files) - len(sendable)
+        if skipped:
+            await bot.send_message(chat_id, f"⚠️ {skipped} file(s) skipped (too large).")
+    finally:
+        if session_dir is not None:
+            await asyncio.to_thread(shutil.rmtree, session_dir, True)
+
+
+async def handle_apikey(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if user is None:
+        return
+    key, created = db.get_or_create_api_key(user.id)
+    verb = "generated" if created else "existing"
+    await update.effective_message.reply_text(
+        f"Your {verb} API key:\n<code>{key}</code>\n\nKeep it secret.",
+        parse_mode="HTML",
+    )
+
+
+async def handle_resetapikey(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if user is None:
+        return
+    key = db.reset_api_key(user.id)
+    await update.effective_message.reply_text(
+        f"API key reset. New key:\n<code>{key}</code>\n\nYour old key is now invalid.",
+        parse_mode="HTML",
+    )
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    if message is None:
+        return
+
+    text = message.text or message.caption or ""
+    urls = URL_RE.findall(text)
+    logger.info("Message received: %d URL(s) found", len(urls))
+
+    bot = context.bot
+    chat_id = message.chat_id
+
+    unsupported: list[str] = []
+    for raw_url in urls:
+        url = raw_url if raw_url.startswith("http") else f"https://{raw_url}"
+        if find_extractor(url) is None:
+            logger.info("No extractor for URL: %s", url)
+            unsupported.append(url)
+            continue
+
+        status = await message.reply_text(f"⬇️ Downloading...")
+        try:
+            await download_and_deliver(bot, chat_id, url)
+            await status.delete()
+        except Exception as exc:
+            logger.error("Download failed for %s: %s", url, exc, exc_info=True)
+            await status.edit_text(f"❌ Failed: {exc}")
+
+    if unsupported:
+        lines = "\n".join(f"• {u}" for u in unsupported)
+        await message.reply_text(f"⚠️ Unsupported URL(s):\n{lines}")
