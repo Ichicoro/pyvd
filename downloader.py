@@ -33,6 +33,39 @@ def file_type(path: Path) -> str:
     return "document"
 
 
+def _run_download(
+    url: str,
+    session_dir: Path,
+    cookies_file: str | None,
+    url_transform: Callable[[str], str] | None,
+    extract: Callable[[str], MediaResult] | None,
+) -> list[Path]:
+    if extract is not None:
+        return _download_from_extractor(extract, url, session_dir)
+    effective_url = url_transform(url) if url_transform else url
+    if effective_url != url:
+        logger.info("URL rewritten: %s -> %s", url, effective_url)
+    return _do_ytdlp(effective_url, session_dir, cookies_file)
+
+
+def download_blocking(
+    url: str,
+    base_dir: str = "/tmp/pygovd",
+    cookies_file: str | None = None,
+    url_transform: Callable[[str], str] | None = None,
+    extract: Callable[[str], MediaResult] | None = None,
+) -> tuple[Path, list[Path]]:
+    """Run download and return (session_dir, files). Caller must rmtree session_dir."""
+    session_dir = Path(base_dir) / uuid.uuid4().hex
+    session_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        files = _run_download(url, session_dir, cookies_file, url_transform, extract)
+        return session_dir, files
+    except Exception:
+        shutil.rmtree(session_dir, ignore_errors=True)
+        raise
+
+
 @contextmanager
 def download(
     url: str,
@@ -44,13 +77,7 @@ def download(
     session_dir = Path(base_dir) / uuid.uuid4().hex
     session_dir.mkdir(parents=True, exist_ok=True)
     try:
-        if extract is not None:
-            files = _download_from_extractor(extract, url, session_dir)
-        else:
-            effective_url = url_transform(url) if url_transform else url
-            if effective_url != url:
-                logger.info("URL rewritten: %s -> %s", url, effective_url)
-            files = _do_ytdlp(effective_url, session_dir, cookies_file)
+        files = _run_download(url, session_dir, cookies_file, url_transform, extract)
         yield files
     finally:
         shutil.rmtree(session_dir, ignore_errors=True)

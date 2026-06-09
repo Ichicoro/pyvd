@@ -1,19 +1,50 @@
 from __future__ import annotations
+import asyncio
 import logging
 import re
+import shutil
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from telegram import Update, InputMediaVideo, InputMediaPhoto, InputMediaDocument
+from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 
 from config import config
-from downloader import download, file_type
+from downloader import download_blocking, file_type
 from extractors import find_extractor
 
 logger = logging.getLogger(__name__)
 
 URL_RE = re.compile(r"https?://\S+|(?<!\w)(?:www\.)?\w[\w.-]*/\S*")
 MAX_ALBUM_SIZE = 10
+
+
+@asynccontextmanager
+async def _chat_action(bot, chat_id: int, action: ChatAction):
+    async def _repeat():
+        while True:
+            await bot.send_chat_action(chat_id=chat_id, action=action)
+            await asyncio.sleep(4)
+
+    task = asyncio.create_task(_repeat())
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
+def _upload_action(files: list[Path]) -> ChatAction:
+    types = {file_type(f) for f in files}
+    if types == {"photo"}:
+        return ChatAction.UPLOAD_PHOTO
+    if types == {"audio"}:
+        return ChatAction.UPLOAD_VOICE
+    return ChatAction.UPLOAD_VIDEO
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -25,38 +56,61 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     urls = URL_RE.findall(text)
     logger.info("Message received: %d URL(s) found", len(urls))
 
+    bot = context.bot
+    chat_id = message.chat_id
+
+    unsupported: list[str] = []
     for raw_url in urls:
         url = raw_url if raw_url.startswith("http") else f"https://{raw_url}"
         extractor = find_extractor(url)
         if extractor is None:
             logger.info("No extractor for URL: %s", url)
+            unsupported.append(url)
             continue
 
         status = await message.reply_text(f"⬇️ Downloading from {extractor.display_name}...")
+        session_dir = None
         try:
-            with download(url, config.download_dir, extractor.cookies_file, extractor.url_transform, extractor.extract) as files:
-                if not files:
-                    await status.edit_text("No media found.")
-                    continue
+            async with _chat_action(bot, chat_id, ChatAction.TYPING):
+                session_dir, files = await asyncio.to_thread(
+                    download_blocking,
+                    url,
+                    config.download_dir,
+                    extractor.cookies_file,
+                    extractor.url_transform,
+                    extractor.extract,
+                )
 
-                sendable = [f for f in files if f.stat().st_size <= config.max_file_size]
-                skipped = len(files) - len(sendable)
+            if not files:
+                await status.edit_text("No media found.")
+                continue
 
-                if not sendable:
-                    limit_mb = config.max_file_size // 1024 // 1024
-                    await status.edit_text(f"All files exceed {limit_mb}MB limit.")
-                    continue
+            sendable = [f for f in files if f.stat().st_size <= config.max_file_size]
+            skipped = len(files) - len(sendable)
 
-                reply_url = extractor.reply_url(url) if extractor.reply_url else url
+            if not sendable:
+                limit_mb = config.max_file_size // 1024 // 1024
+                await status.edit_text(f"All files exceed {limit_mb}MB limit.")
+                continue
+
+            reply_url = extractor.reply_url(url) if extractor.reply_url else url
+            async with _chat_action(bot, chat_id, _upload_action(sendable)):
                 await _send_files(update, sendable, caption=reply_url)
-                await status.delete()
+            await status.delete()
 
-                if skipped:
-                    await message.reply_text(f"⚠️ {skipped} file(s) skipped (too large).")
+            if skipped:
+                await message.reply_text(f"⚠️ {skipped} file(s) skipped (too large).")
 
         except Exception as exc:
             logger.error("Download failed for %s: %s", url, exc, exc_info=True)
             await status.edit_text(f"❌ Failed: {exc}")
+        finally:
+            if session_dir is not None:
+                await asyncio.to_thread(shutil.rmtree, session_dir, True)
+
+    if unsupported:
+        lines = "\n".join(f"• {u}" for u in unsupported)
+        await message.reply_text(f"⚠️ Unsupported URL(s):\n{lines}")
 
 
 async def _send_files(update: Update, files: list[Path], caption: str | None = None) -> None:
