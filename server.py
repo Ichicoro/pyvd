@@ -29,6 +29,8 @@ async def _download(request: web.Request) -> web.Response:
     url = body.get("url", "").strip()
     if not url:
         return web.Response(status=400, text="Missing 'url' field")
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
 
     bot: Bot = request.app["bot"]
     logger.info("API download request from user_id=%d url=%s", user_id, url)
