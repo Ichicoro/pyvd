@@ -26,7 +26,7 @@ EXTRACTORS: list[Extractor] = [
         name="twitter",
         display_name="Twitter/X",
         pattern=re.compile(
-            r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com|t\.co)/\S+"
+            r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com|t\.co|nitter\.net)/\S+"
         ),
         url_transform=nitter.twitter_download_url,
         reply_url=nitter.twitter_reply_url,
@@ -46,6 +46,13 @@ EXTRACTORS: list[Extractor] = [
             r"https?://(?:bsky|witchsky)\.app/profile/[^/]+/post/[a-zA-Z0-9]+"
         ),
         extract=bluesky.extract,
+    ),
+    Extractor(
+        name="youtube",
+        display_name="YouTube",
+        pattern=re.compile(
+            r"https?://(?:(?:www\.|m\.)?youtube\.com/(?:watch|shorts|live)|youtu\.be/)\S+"
+        ),
     ),
     Extractor(
         name="tiktok",

@@ -82,7 +82,7 @@ async def _send_files(update: Update, files: list[Path], caption: str | None = N
                     media_group.append(InputMediaPhoto(fh, caption=item_caption))
                 else:
                     media_group.append(InputMediaDocument(fh, caption=item_caption))
-            await message.reply_media_group(media_group)
+            await message.reply_media_group(media_group, write_timeout=120)
         finally:
             for fh in opened:
                 fh.close()
@@ -92,10 +92,10 @@ async def _send_single(message, path: Path, caption: str | None = None) -> None:
     ftype = file_type(path)
     with open(path, "rb") as fh:
         if ftype == "video":
-            await message.reply_video(fh, supports_streaming=True, caption=caption)
+            await message.reply_video(fh, supports_streaming=True, caption=caption, write_timeout=120)
         elif ftype == "photo":
-            await message.reply_photo(fh, caption=caption)
+            await message.reply_photo(fh, caption=caption, write_timeout=120)
         elif ftype == "audio":
-            await message.reply_audio(fh, caption=caption)
+            await message.reply_audio(fh, caption=caption, write_timeout=120)
         else:
-            await message.reply_document(fh, caption=caption)
+            await message.reply_document(fh, caption=caption, write_timeout=120)
