@@ -31,7 +31,9 @@ IGRAM_STATIC_TS = 1771418815381
 _BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 _ALPHA_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-SHORTCODE_RE = re.compile(r"instagram\.com/(?:p|reel|reels|tv)/([a-zA-Z0-9_-]+)")
+SHORTCODE_RE = re.compile(r"(?:dd)?instagram\.com/(?:p|reel|reels|tv)/([a-zA-Z0-9_-]+)")
+STORY_RE = re.compile(r"(?:dd)?instagram\.com/stories/[a-zA-Z0-9._]+/(\d+)")
+SHARE_RE = re.compile(r"(?:dd)?instagram\.com/share/(?:(?:reel|video|s|p)/)?([^/?]+)")
 CONTEXT_JSON_RE = re.compile(r'"contextJSON"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 WEB_HEADERS = {
@@ -57,12 +59,13 @@ IGRAM_EXTRA_HEADERS = {
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
-def _cookie_header(cookies_file: str) -> str:
+def _load_ig_cookies(cookies_file: str) -> tuple[str, dict[str, str]]:
+    """Return (cookie_header_string, {name: value} dict) for instagram.com cookies."""
     jar = http.cookiejar.MozillaCookieJar(cookies_file)
     jar.load(ignore_discard=True, ignore_expires=True)
-    return "; ".join(
-        f"{c.name}={c.value}" for c in jar if c.domain.endswith("instagram.com")
-    )
+    ig = {c.name: c.value for c in jar if c.domain.endswith("instagram.com")}
+    header = "; ".join(f"{k}={v}" for k, v in ig.items())
+    return header, ig
 
 
 def _random_base64(n: int) -> str:
@@ -108,9 +111,8 @@ def _parse_media(node: dict) -> MediaItem | None:
 
 # ── method 1: GQL API ──────────────────────────────────────────────────────────
 
-def _build_gql_request(shortcode: str) -> tuple[dict, bytes]:
+def _build_gql_request(shortcode: str, real_cookies: dict[str, str] | None = None) -> tuple[dict, bytes]:
     session_data = _random_base64(8)
-    csrf_token = _random_base64(32)
     device_id = _random_base64(24)
     machine_id = _random_base64(24)
     dynamic_flags = _random_base64(154)
@@ -119,13 +121,20 @@ def _build_gql_request(shortcode: str) -> tuple[dict, bytes]:
     timestamp = str(int(time.time()))
     session = "::" + _random_alpha(6)
 
+    if real_cookies:
+        csrf_token = real_cookies.get("csrftoken", _random_base64(32))
+        cookie_str = "; ".join(f"{k}={v}" for k, v in real_cookies.items())
+    else:
+        csrf_token = _random_base64(32)
+        cookie_str = f"csrftoken={csrf_token}; ig_did={device_id}; wd=1280x720; dpr=2; mid={machine_id}; ig_nrcb=1"
+
     headers = {
         "x-ig-app-id": "936619743392459",
         "X-FB-LSD": session_data,
         "X-CSRFToken": csrf_token,
         "X-Bloks-Version-Id": "6309c8d03d8a3f47a1658ba38b304a3f837142ef5f637ebf1f8f52d4b802951e",
         "x-asbd-id": "129477",
-        "cookie": f"csrftoken={csrf_token}; ig_did={device_id}; wd=1280x720; dpr=2; mid={machine_id}; ig_nrcb=1",
+        "cookie": cookie_str,
         "Content-Type": "application/x-www-form-urlencoded",
         "X-FB-Friendly-Name": POLARIS_ACTION,
         **WEB_HEADERS,
@@ -168,10 +177,8 @@ def _build_gql_request(shortcode: str) -> tuple[dict, bytes]:
     return headers, body
 
 
-def _gql_media(shortcode: str, cookie_header: str | None = None) -> MediaResult:
-    headers, body = _build_gql_request(shortcode)
-    if cookie_header:
-        headers["cookie"] = headers.get("cookie", "") + "; " + cookie_header
+def _gql_media(shortcode: str, real_cookies: dict[str, str] | None = None) -> MediaResult:
+    headers, body = _build_gql_request(shortcode, real_cookies)
     raw = _post(GRAPHQL_ENDPOINT, body, headers)
     resp = json.loads(raw)
 
@@ -207,9 +214,10 @@ def _gql_media(shortcode: str, cookie_header: str | None = None) -> MediaResult:
 
 # ── method 2: embed page ───────────────────────────────────────────────────────
 
-def _embed_media(shortcode: str, cookie_header: str | None = None) -> MediaResult:
+def _embed_media(shortcode: str, cookie_header: str | None = None, real_cookies: dict[str, str] | None = None) -> MediaResult:
     embed_url = f"https://www.instagram.com/p/{shortcode}/embed/captioned"
-    headers = {**WEB_HEADERS, **({"Cookie": cookie_header} if cookie_header else {})}
+    hdr = cookie_header or ("; ".join(f"{k}={v}" for k, v in real_cookies.items()) if real_cookies else None)
+    headers = {**WEB_HEADERS, **({"Cookie": hdr} if hdr else {})}
     raw = _get(embed_url, headers).decode(errors="replace")
 
     m = CONTEXT_JSON_RE.search(raw)
@@ -319,6 +327,50 @@ def _igram_media(shortcode: str) -> MediaResult:
     return result
 
 
+# ── stories: IGram story endpoint ─────────────────────────────────────────────
+
+def _igram_story_media(story_url: str) -> MediaResult:
+    payload = _igram_payload({"url": story_url})
+    headers = {
+        "Content-Type": "application/json",
+        **IGRAM_EXTRA_HEADERS,
+    }
+    raw = _post(f"https://{IGRAM_HOSTNAME}/api/v1/instagram/story", payload, headers)
+    data = json.loads(raw)
+
+    result_list = data.get("result", [])
+    if not result_list:
+        raise ValueError("IGram story: no results")
+
+    result = MediaResult()
+    for item in result_list:
+        video_versions = item.get("video_versions", [])
+        image_versions = item.get("image_versions2", {}).get("candidates", [])
+        if video_versions:
+            best = max(video_versions, key=lambda v: v.get("width", 0))
+            url = best.get("url")
+            if url:
+                result.items.append(MediaItem(urls=[url], type="video"))
+        elif image_versions:
+            best = max(image_versions, key=lambda v: v.get("width", 0))
+            url = best.get("url")
+            if url:
+                result.items.append(MediaItem(urls=[url], type="photo"))
+
+    if not result.items:
+        raise ValueError("no media from IGram story")
+    return result
+
+
+# ── share URL redirect ──────────────────────────────────────────────────────────
+
+def _resolve_share_url(share_url: str) -> str:
+    req = urllib.request.Request(share_url, headers=WEB_HEADERS, method="GET")
+    opener = urllib.request.build_opener(urllib.request.HTTPRedirectHandler())
+    with opener.open(req, timeout=15) as resp:
+        return resp.url
+
+
 # ── method 4: yt-dlp ──────────────────────────────────────────────────────────
 
 def _ytdlp_media(shortcode: str, cookies_file: str | None = None) -> MediaResult:
@@ -350,6 +402,20 @@ def _ytdlp_media(shortcode: str, cookies_file: str | None = None) -> MediaResult
 def extract(url: str) -> MediaResult:
     from config import config
 
+    # share URLs: resolve redirect first, then re-dispatch
+    if SHARE_RE.search(url):
+        try:
+            resolved = _resolve_share_url(url)
+            logger.info("Instagram share URL resolved to: %s", resolved)
+            url = resolved
+        except Exception as exc:
+            raise RuntimeError(f"failed to resolve Instagram share URL: {exc}") from exc
+
+    # stories: single IGram story endpoint, no fallback chain
+    m_story = STORY_RE.search(url)
+    if m_story:
+        return _igram_story_media(url)
+
     m = SHORTCODE_RE.search(url)
     if not m:
         raise ValueError(f"could not extract Instagram shortcode from: {url}")
@@ -357,15 +423,17 @@ def extract(url: str) -> MediaResult:
 
     cookies_file = config.instagram_cookies_file
     cookie_hdr: str | None = None
+    real_cookies: dict[str, str] | None = None
     if cookies_file and os.path.exists(cookies_file):
         try:
-            cookie_hdr = _cookie_header(cookies_file)
+            cookie_hdr, real_cookies = _load_ig_cookies(cookies_file)
         except Exception as exc:
             logger.warning("Failed to load Instagram cookies: %s", exc)
 
+    errors: list[str] = []
     for method_name, method in [
-        ("GQL", lambda: _gql_media(shortcode, cookie_hdr)),
-        ("embed", lambda: _embed_media(shortcode, cookie_hdr)),
+        ("GQL", lambda: _gql_media(shortcode, real_cookies)),
+        ("embed", lambda: _embed_media(shortcode, real_cookies=real_cookies)),
         ("IGram", lambda: _igram_media(shortcode)),
         ("yt-dlp", lambda: _ytdlp_media(shortcode, cookies_file)),
     ]:
@@ -375,5 +443,6 @@ def extract(url: str) -> MediaResult:
             return result
         except Exception as exc:
             logger.warning("Instagram %s method failed: %s", method_name, exc)
+            errors.append(f"{method_name}: {exc}")
 
-    raise RuntimeError(f"all Instagram methods failed for {shortcode}")
+    raise RuntimeError(f"all Instagram methods failed for {shortcode}: {'; '.join(errors)}")

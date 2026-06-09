@@ -36,7 +36,7 @@ EXTRACTORS: list[Extractor] = [
         name="instagram",
         display_name="Instagram",
         pattern=re.compile(
-            r"https?://(?:www\.)?(?:dd)?instagram\.com/(?:p|reel|reels|tv|stories)/\S+"
+            r"https?://(?:www\.)?(?:dd)?instagram\.com/(?:p|reel|reels|tv|stories|share)/\S+"
         ),
         extract=instagram.extract,
     ),
