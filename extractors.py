@@ -5,6 +5,7 @@ from typing import Callable
 
 from config import config
 import nitter
+import twitter
 import instagram
 import bluesky
 import tumblr
@@ -29,8 +30,8 @@ EXTRACTORS: list[Extractor] = [
         pattern=re.compile(
             r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com|t\.co|nitter\.net)/\S+"
         ),
-        url_transform=nitter.twitter_download_url,
         reply_url=nitter.twitter_reply_url,
+        extract=twitter.extract,
     ),
     Extractor(
         name="instagram",
