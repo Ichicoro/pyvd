@@ -3,6 +3,7 @@ import asyncio
 import logging
 import re
 import shutil
+import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -114,7 +115,8 @@ async def download_and_deliver(bot: Bot, chat_id: int, url: str) -> None:
             limit_mb = config.max_file_size // 1024 // 1024
             raise ValueError(f"All files exceed {limit_mb}MB limit")
 
-        caption = extractor.reply_url(url) if extractor.reply_url else url
+        clean_url = urllib.parse.urlunparse(urllib.parse.urlparse(url)._replace(query="", fragment=""))
+        caption = extractor.reply_url(clean_url) if extractor.reply_url else clean_url
         async with _chat_action(bot, chat_id, _upload_action(sendable)):
             await _send_files_to_chat(bot, chat_id, sendable, caption=caption)
 
