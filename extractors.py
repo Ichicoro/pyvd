@@ -9,6 +9,7 @@ import twitter
 import instagram
 import bluesky
 import tumblr
+import threads
 from models import MediaResult
 
 
@@ -71,6 +72,14 @@ EXTRACTORS: list[Extractor] = [
             r"https?://(?:(?:www|m|vm|vt)\.)?(?:vx)?tiktok\.com/\S+"
         ),
         cookies_file=config.tiktok_cookies_file,
+    ),
+    Extractor(
+        name="threads",
+        display_name="Threads",
+        pattern=re.compile(
+            r"https?://(?:www\.)?threads\.(?:net|com)/@[^/]+/post/[a-zA-Z0-9_-]+"
+        ),
+        extract=threads.extract,
     ),
 ]
 
