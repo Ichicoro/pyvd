@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import logging
 
 from aiohttp import web
@@ -35,21 +36,34 @@ async def _download(request: web.Request) -> web.Response:
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
+    wait = bool(body.get("wait", False))
     bot: Bot = request.app["bot"]
-    logger.info("API download request from user_id=%d url=%s", user_id, url)
+    logger.info("API download request from user_id=%d url=%s wait=%s", user_id, url, wait)
 
-    status = await bot.send_message(user_id, f"⬇️ Received API request to download `{url}`...", parse_mode="Markdown")
+    async def run():
+        status = await bot.send_message(user_id, f"⬇️ Received API request to download `{url}`...", parse_mode="Markdown")
+        try:
+            await download_and_deliver(bot, user_id, url)
+            await status.delete()
+        except ValueError as exc:
+            await status.delete()
+            await bot.send_message(user_id, f"❌ {exc}\n{url}")
+            raise
+        except Exception as exc:
+            logger.error("API download failed for %s: %s", url, exc, exc_info=True)
+            await status.delete()
+            await bot.send_message(user_id, f"❌ Download failed: {exc}\n{url}")
+            raise
+
+    if not wait:
+        asyncio.create_task(run())
+        return web.Response(status=200, text="OK")
+
     try:
-        await download_and_deliver(bot, user_id, url)
-        await status.delete()
+        await run()
     except ValueError as exc:
-        await status.delete()
-        await bot.send_message(user_id, f"❌ {exc}\n{url}")
         return web.Response(status=422, text=str(exc))
     except Exception as exc:
-        logger.error("API download failed for %s: %s", url, exc, exc_info=True)
-        await status.delete()
-        await bot.send_message(user_id, f"❌ Download failed: {exc}\n{url}")
         return web.Response(status=500, text=f"Download failed: {exc}")
 
     return web.Response(status=200, text="OK")
