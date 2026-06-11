@@ -38,13 +38,17 @@ async def _download(request: web.Request) -> web.Response:
     bot: Bot = request.app["bot"]
     logger.info("API download request from user_id=%d url=%s", user_id, url)
 
+    status = await bot.send_message(user_id, f"⬇️ Received API request to download `{url}`...", parse_mode="Markdown")
     try:
         await download_and_deliver(bot, user_id, url)
+        await status.delete()
     except ValueError as exc:
+        await status.delete()
         await bot.send_message(user_id, f"❌ {exc}\n{url}")
         return web.Response(status=422, text=str(exc))
     except Exception as exc:
         logger.error("API download failed for %s: %s", url, exc, exc_info=True)
+        await status.delete()
         await bot.send_message(user_id, f"❌ Download failed: {exc}\n{url}")
         return web.Response(status=500, text=f"Download failed: {exc}")
 
