@@ -19,6 +19,18 @@ from extractors import find_extractor
 logger = logging.getLogger(__name__)
 
 URL_RE = re.compile(r"https?://\S+|(?<!\w)(?:www\.)?\w[\w.-]*/\S*")
+
+_TRACKING_PARAMS = re.compile(
+    r"^(utm_\w+|igsh|fbclid|si|ref|ref_src|ref_url|twsrc|twgr|twcon|s|share_id)$",
+    re.IGNORECASE,
+)
+
+
+def _clean_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(url)
+    qs = {k: v for k, v in urllib.parse.parse_qsl(parsed.query) if not _TRACKING_PARAMS.match(k)}
+    cleaned = parsed._replace(query=urllib.parse.urlencode(qs), fragment="")
+    return urllib.parse.urlunparse(cleaned)
 MAX_ALBUM_SIZE = 10
 
 
@@ -115,8 +127,7 @@ async def download_and_deliver(bot: Bot, chat_id: int, url: str) -> None:
             limit_mb = config.max_file_size // 1024 // 1024
             raise ValueError(f"All files exceed {limit_mb}MB limit")
 
-        clean_url = urllib.parse.urlunparse(urllib.parse.urlparse(url)._replace(query="", fragment=""))
-        caption = extractor.reply_url(clean_url) if extractor.reply_url else clean_url
+        caption = extractor.reply_url(_clean_url(url)) if extractor.reply_url else _clean_url(url)
         async with _chat_action(bot, chat_id, _upload_action(sendable)):
             await _send_files_to_chat(bot, chat_id, sendable, caption=caption)
 
