@@ -16,6 +16,7 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | Instagram | `instagram.py` | GQL → embed page → IGram → yt-dlp (fallback chain) |
 | Bluesky | `bluesky.py` | AT Protocol public API |
 | Tumblr | `tumblr.py` | Tumblr API |
+| Threads | `threads.py` | embed page scrape (BeautifulSoup) |
 | YouTube / Shorts | — | yt-dlp |
 | TikTok | — | yt-dlp (optional cookies) |
 
