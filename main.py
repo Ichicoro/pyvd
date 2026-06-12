@@ -3,11 +3,11 @@ import asyncio
 import logging
 import signal
 
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CallbackQueryHandler, ChosenInlineResultHandler, CommandHandler, InlineQueryHandler, MessageHandler, filters
 
 import db
 from config import config
-from handlers import handle_apikey, handle_message, handle_resetapikey
+from handlers import handle_apikey, handle_chosen_inline_result, handle_inline_loading_callback, handle_inline_query, handle_message, handle_resetapikey
 from server import start_server
 
 logging.basicConfig(
@@ -24,6 +24,9 @@ async def _run() -> None:
     app = Application.builder().token(config.bot_token).build()
     app.add_handler(CommandHandler("apikey", handle_apikey))
     app.add_handler(CommandHandler("resetapikey", handle_resetapikey))
+    app.add_handler(InlineQueryHandler(handle_inline_query))
+    app.add_handler(ChosenInlineResultHandler(handle_chosen_inline_result))
+    app.add_handler(CallbackQueryHandler(handle_inline_loading_callback, pattern="^inline_loading$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.CAPTION, handle_message))
 
