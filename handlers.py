@@ -194,6 +194,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error("Download failed for %s: %s", url, exc, exc_info=True)
             await status.edit_text(f"❌ Failed: {exc}")
 
-    if unsupported:
+    if unsupported and message.chat.type == "private":
         lines = "\n".join(f"• {u}" for u in unsupported)
         await message.reply_text(f"⚠️ Unsupported URL(s):\n{lines}")
