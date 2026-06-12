@@ -141,11 +141,15 @@ async def download_and_deliver(bot: Bot, chat_id: int, url: str) -> None:
 
 async def handle_apikey(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    if user is None:
+    message = update.effective_message
+    if user is None or message is None:
+        return
+    if update.effective_chat and update.effective_chat.type != "private":
+        await message.reply_text("⚠️ This command is only available in private chats.")
         return
     key, created = db.get_or_create_api_key(user.id)
     verb = "generated" if created else "existing"
-    await update.effective_message.reply_text(
+    await message.reply_text(
         f"Your {verb} API key:\n<code>{key}</code>\n\nKeep it secret.",
         parse_mode="HTML",
     )
@@ -153,10 +157,14 @@ async def handle_apikey(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def handle_resetapikey(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    if user is None:
+    message = update.effective_message
+    if user is None or message is None:
+        return
+    if update.effective_chat and update.effective_chat.type != "private":
+        await message.reply_text("⚠️ This command is only available in private chats.")
         return
     key = db.reset_api_key(user.id)
-    await update.effective_message.reply_text(
+    await message.reply_text(
         f"API key reset. New key:\n<code>{key}</code>\n\nYour old key is now invalid.",
         parse_mode="HTML",
     )
