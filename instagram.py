@@ -94,12 +94,13 @@ def _parse_media(node: dict) -> MediaItem | None:
         video_url = node.get("video_url")
         if not video_url:
             return None
+        dimensions = node.get("dimensions") or {}
         return MediaItem(
             urls=[video_url],
             type="video",
             thumbnail_url=node.get("display_url"),
-            width=node.get("dimensions", {}).get("width", 0),
-            height=node.get("dimensions", {}).get("height", 0),
+            width=dimensions.get("width", 0),
+            height=dimensions.get("height", 0),
         )
     if typename in ("GraphImage", "XDTGraphImage"):
         display_url = node.get("display_url")
@@ -185,14 +186,14 @@ def _gql_media(shortcode: str, real_cookies: dict[str, str] | None = None) -> Me
     if resp.get("status") != "ok":
         raise ValueError(f"GQL status: {resp.get('status')}")
 
-    node = resp.get("data", {}).get("xdt_shortcode_media")
+    node = (resp.get("data") or {}).get("xdt_shortcode_media")
     if not node:
         raise ValueError("xdt_shortcode_media missing")
 
     caption = ""
-    edges = node.get("edge_media_to_caption", {}).get("edges", [])
+    edges = (node.get("edge_media_to_caption") or {}).get("edges", [])
     if edges:
-        caption = edges[0].get("node", {}).get("text", "")
+        caption = (edges[0].get("node") or {}).get("text", "")
 
     result = MediaResult(caption=caption or None)
     typename = node.get("__typename", "")
@@ -202,8 +203,8 @@ def _gql_media(shortcode: str, real_cookies: dict[str, str] | None = None) -> Me
         if item:
             result.items.append(item)
     elif typename in ("GraphSidecar", "XDTGraphSidecar"):
-        for edge in node.get("edge_sidecar_to_children", {}).get("edges", []):
-            item = _parse_media(edge.get("node", {}))
+        for edge in (node.get("edge_sidecar_to_children") or {}).get("edges", []):
+            item = _parse_media(edge.get("node") or {})
             if item:
                 result.items.append(item)
 
@@ -232,9 +233,9 @@ def _embed_media(shortcode: str, cookie_header: str | None = None, real_cookies:
         raise ValueError("shortcode_media not found in contextJSON")
 
     caption = ""
-    edges = node.get("edge_media_to_caption", {}).get("edges", [])
+    edges = (node.get("edge_media_to_caption") or {}).get("edges", [])
     if edges:
-        caption = edges[0].get("node", {}).get("text", "")
+        caption = (edges[0].get("node") or {}).get("text", "")
 
     result = MediaResult(caption=caption or None)
     typename = node.get("__typename", "")
@@ -244,8 +245,8 @@ def _embed_media(shortcode: str, cookie_header: str | None = None, real_cookies:
         if item:
             result.items.append(item)
     elif typename in ("GraphSidecar", "XDTGraphSidecar"):
-        for edge in node.get("edge_sidecar_to_children", {}).get("edges", []):
-            item = _parse_media(edge.get("node", {}))
+        for edge in (node.get("edge_sidecar_to_children") or {}).get("edges", []):
+            item = _parse_media(edge.get("node") or {})
             if item:
                 result.items.append(item)
 
