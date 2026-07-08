@@ -30,6 +30,17 @@ Optional vars:
 | `TIKTOK_COOKIES_FILE` | Path to Netscape-format cookies file for TikTok |
 | `MAX_FILE_SIZE_MB` | Skip files larger than this (default: `50`) |
 
+#### Getting a cookies file
+
+Instagram (and some TikTok content) requires a logged-in session to fetch reliably.
+
+1. Install the [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) browser extension.
+2. Log into instagram.com (or tiktok.com) in that browser — make sure you're actually signed in, not just sitting on the login page.
+3. Click the extension while on the site and export cookies for that domain to a file, e.g. `insta_cookies.txt`.
+4. Point `INSTAGRAM_COOKIES_FILE` (or `TIKTOK_COOKIES_FILE`) at that file's path.
+
+For Instagram specifically, double-check the exported file contains a `sessionid` cookie for `.instagram.com` — without it you're not actually authenticated, and downloads will silently behave as if logged out. Cookies expire periodically; re-export when downloads start failing.
+
 **3. Run**
 
 ```bash
