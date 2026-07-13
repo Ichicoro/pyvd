@@ -315,6 +315,10 @@ def _gallery_dl_extract(url: str, cookies_file: str | None = None) -> MediaResul
         if msg_type == 2:  # Message.Directory: post-level metadata
             result.caption = payload.get("description") or result.caption
         elif msg_type == 3:  # Message.Url: a downloadable media item
+            if payload.startswith("ytdl:"):
+                # gallery-dl's internal marker for DASH-manifest videos it hands off
+                # to its own yt-dlp downloader; not a real HTTP URL we can fetch.
+                raise ValueError("gallery-dl returned a DASH manifest (ytdl: marker), not a direct URL")
             meta = entry[2] if len(entry) > 2 else {}
             ext = (meta.get("extension") or "").lower()
             media_type = "video" if ext in _GALLERY_DL_VIDEO_EXTS else "photo"
