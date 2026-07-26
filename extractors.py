@@ -11,6 +11,7 @@ import bluesky
 import tumblr
 import threads
 import pixiv
+import reddit
 from models import MediaResult
 
 
@@ -90,6 +91,15 @@ EXTRACTORS: list[Extractor] = [
             r"|https?://(?:www\.)?pixiv\.net/member_illust\.php\?[^\s#]*\billust_id=\d+"
         ),
         extract=pixiv.extract,
+    ),
+    Extractor(
+        name="reddit",
+        display_name="Reddit",
+        pattern=re.compile(
+            r"https?://(?:(?:www|old|new|np|m)\.)?reddit\.com/\S+"
+            r"|https?://redd\.it/\S+"
+        ),
+        extract=reddit.extract,
     ),
 ]
 

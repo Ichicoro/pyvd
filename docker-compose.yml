@@ -7,12 +7,41 @@ services:
       DB_PATH: /data/pyvd.db
       DOWNLOAD_DIR: /tmp/pyvd
       SIGNAL_SERVICE: signal-cli-rest-api:8080
+      REDLIB_SERVICE: redlib:8080
     volumes:
       - db_data:/data
     ports:
       - "5868:5868"
     depends_on:
       - signal-cli-rest-api
+    networks:
+      - bot
+  
+  redlib:
+    # quay.io/redlib/redlib:latest is stale upstream and fails to obtain a
+    # Reddit OAuth token (https://github.com/redlib-org/redlib/issues/551).
+    # This is an actively-rebuilt fork tracking main.
+    image: ghcr.io/evrial/redlib:latest
+    restart: always
+    container_name: "redlib"
+    # ports:
+    #   - 8080:8080 # Specify `127.0.0.1:8080:8080` instead if using a reverse proxy
+    user: nobody
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+      # - seccomp=seccomp-redlib.json
+    cap_drop:
+      - ALL
+    env_file: .env
+    environment:
+      REDLIB_DEFAULT_SHOW_NSFW: on
+    networks:
+      - bot
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "--tries=1", "http://localhost:8080/settings"]
+      interval: 5m
+      timeout: 3s
 
   signal-cli-rest-api:
     image: bbernhard/signal-cli-rest-api:latest
@@ -25,3 +54,6 @@ services:
 volumes:
   db_data:
   signal_data:
+
+networks:
+  bot:

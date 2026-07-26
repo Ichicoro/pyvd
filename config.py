@@ -20,6 +20,7 @@ class Config:
     signal_service: str | None
     signal_phone_number: str | None
     signal_allowed_ids: frozenset[str] | None
+    redlib_service: str | None
 
     @classmethod
     def load(cls) -> Config:
@@ -47,6 +48,7 @@ class Config:
             signal_service=os.environ.get("SIGNAL_SERVICE") or None,
             signal_phone_number=os.environ.get("SIGNAL_PHONE_NUMBER") or None,
             signal_allowed_ids=signal_allowed_ids,
+            redlib_service=os.environ.get("REDLIB_SERVICE") or None,
         )
 
 
