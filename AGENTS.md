@@ -17,6 +17,7 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | Bluesky | `bluesky.py` | AT Protocol public API |
 | Tumblr | `tumblr.py` | Tumblr API |
 | Threads | `threads.py` | embed page scrape (BeautifulSoup) |
+| Pixiv | `pixiv.py` | Pixiv AJAX API (optional cookies for R-18) |
 | YouTube / Shorts | — | yt-dlp |
 | TikTok | — | yt-dlp (optional cookies) |
 
@@ -48,6 +49,7 @@ Downloads run in a thread (`asyncio.to_thread`) to avoid blocking the event loop
 | `ALLOWED_USER_IDS` | no | — | Comma-separated Telegram user IDs; if set, all other users are ignored |
 | `INSTAGRAM_COOKIES_FILE` | no | — | Path to Netscape-format cookies for Instagram |
 | `TIKTOK_COOKIES_FILE` | no | — | Path to Netscape-format cookies for TikTok |
+| `PIXIV_COOKIES_FILE` | no | — | Path to Netscape-format cookies for Pixiv (needed for R-18 works) |
 | `DOWNLOAD_DIR` | no | `/tmp/pyvd` | Temp directory for downloads |
 | `MAX_FILE_SIZE_MB` | no | `50` | Files larger than this are skipped |
 | `DB_PATH` | no | `pyvd.db` | SQLite database path |

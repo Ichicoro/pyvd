@@ -10,6 +10,7 @@ import instagram
 import bluesky
 import tumblr
 import threads
+import pixiv
 from models import MediaResult
 
 
@@ -80,6 +81,15 @@ EXTRACTORS: list[Extractor] = [
             r"https?://(?:www\.)?threads\.(?:net|com)/@[^/]+/post/[a-zA-Z0-9_-]+"
         ),
         extract=threads.extract,
+    ),
+    Extractor(
+        name="pixiv",
+        display_name="Pixiv",
+        pattern=re.compile(
+            r"https?://(?:www\.)?pixiv\.net/(?:en/)?artworks/\d+"
+            r"|https?://(?:www\.)?pixiv\.net/member_illust\.php\?[^\s#]*\billust_id=\d+"
+        ),
+        extract=pixiv.extract,
     ),
 ]
 

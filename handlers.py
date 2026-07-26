@@ -1,9 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-import re
 import shutil
-import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,24 +24,10 @@ import db
 from config import config
 from downloader import download_blocking, file_type
 from extractors import find_extractor
+from urlutil import URL_RE, clean_url as _clean_url
 
 logger = logging.getLogger(__name__)
 
-URL_RE = re.compile(r"https?://\S+|(?<!\w)(?:www\.)?\w[\w.-]*/\S*")
-
-_ALLOWED_PARAMS: dict[str, set[str]] = {
-    "youtube.com": {"v", "t", "list", "index"},
-    "youtu.be": {"t"},
-}
-
-
-def _clean_url(url: str) -> str:
-    parsed = urllib.parse.urlparse(url)
-    bare = (parsed.hostname or "").removeprefix("www.")
-    allowed = next((v for k, v in _ALLOWED_PARAMS.items() if bare == k or bare.endswith("." + k)), set())
-    qs = {k: v for k, v in urllib.parse.parse_qsl(parsed.query) if k in allowed}
-    cleaned = parsed._replace(query=urllib.parse.urlencode(qs), fragment="")
-    return urllib.parse.urlunparse(cleaned)
 MAX_ALBUM_SIZE = 10
 
 

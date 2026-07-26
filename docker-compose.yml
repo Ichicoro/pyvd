@@ -6,10 +6,22 @@ services:
     environment:
       DB_PATH: /data/pyvd.db
       DOWNLOAD_DIR: /tmp/pyvd
+      SIGNAL_SERVICE: signal-cli-rest-api:8080
     volumes:
       - db_data:/data
     ports:
       - "5868:5868"
+    depends_on:
+      - signal-cli-rest-api
+
+  signal-cli-rest-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    restart: unless-stopped
+    environment:
+      MODE: json-rpc
+    volumes:
+      - signal_data:/home/.local/share/signal-cli
 
 volumes:
   db_data:
+  signal_data:

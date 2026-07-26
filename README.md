@@ -2,7 +2,7 @@
 
 Telegram bot that downloads media from social platforms and sends it back to you. Also exposes an HTTP API on port 5868 for external clients.
 
-Supports Twitter/X, Instagram, Bluesky, Tumblr, Threads, YouTube/Shorts, and TikTok.
+Supports Twitter/X, Instagram, Bluesky, Tumblr, Threads, Pixiv, YouTube/Shorts, and TikTok.
 
 Send a URL → get back a video, photo, or album. That's it.
 
@@ -28,7 +28,9 @@ Optional vars:
 | `ALLOWED_USER_IDS` | Comma-separated Telegram user IDs to whitelist |
 | `INSTAGRAM_COOKIES_FILE` | Path to Netscape-format cookies file for Instagram |
 | `TIKTOK_COOKIES_FILE` | Path to Netscape-format cookies file for TikTok |
+| `PIXIV_COOKIES_FILE` | Path to Netscape-format cookies file for Pixiv (required for R-18 works) |
 | `MAX_FILE_SIZE_MB` | Skip files larger than this (default: `50`) |
+| `SIGNAL_SERVICE` / `SIGNAL_PHONE_NUMBER` / `SIGNAL_ALLOWED_IDS` | Enables the Signal bot — see [Signal bot](#signal-bot-optional) below |
 
 #### Getting a cookies file
 
@@ -56,6 +58,37 @@ docker compose up -d
 ```
 
 Data (SQLite DB) persists in a named volume `db_data`. Downloads are ephemeral and live in `/tmp/pyvd` inside the container.
+
+## Signal bot (optional)
+
+pyvd can also run as a Signal bot alongside the Telegram bot, watching DMs and group messages for supported URLs. This uses [`signalbot`](https://pypi.org/project/signalbot/), which talks to a [`signal-cli-rest-api`](https://github.com/bbernhard/signal-cli-rest-api) sidecar rather than Signal's servers directly — the sidecar is already wired up in `docker-compose.yml`.
+
+**1. Register or link a phone number**
+
+The sidecar container needs a registered Signal account before the bot can use it. With the stack running (`docker compose up -d`), either:
+
+- **Link as a secondary device** (easiest — reuses your existing Signal account):
+  ```bash
+  curl "http://localhost:8080/v1/qrcodelink?device_name=pyvd"
+  ```
+  Open the returned URL in a browser to render the QR code, then scan it from Signal's "Link a device" screen on your phone.
+- **Register a new number**: follow the sidecar's [registration docs](https://github.com/bbernhard/signal-cli-rest-api#registration) (requires SMS/voice verification).
+
+**2. Configure**
+
+```
+SIGNAL_SERVICE=signal-cli-rest-api:8080
+SIGNAL_PHONE_NUMBER=+15551234567   # the number registered/linked above
+SIGNAL_ALLOWED_IDS=+15551234567    # optional: comma-separated phone numbers/UUIDs allowed to DM the bot
+```
+
+Both `SIGNAL_SERVICE` and `SIGNAL_PHONE_NUMBER` must be set for the Signal bot to start; otherwise pyvd runs Telegram-only. `SIGNAL_ALLOWED_IDS` gates direct messages — group messages are accepted from any member, so add the bot's number to a group to enable it there.
+
+**3. Restart**
+
+```bash
+docker compose up -d
+```
 
 ## HTTP API
 

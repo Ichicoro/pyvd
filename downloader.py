@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import urllib.parse
 import urllib.request
 import uuid
 from contextlib import contextmanager
@@ -20,6 +21,11 @@ AUDIO_EXTS = {".mp3", ".m4a", ".ogg", ".flac", ".opus", ".wav"}
 SKIP_EXTS = {".json", ".part", ".ytdl", ".description", ".annotations"}
 
 _EXT_FOR_TYPE = {"video": "mp4", "photo": "jpg", "audio": "mp3"}
+
+# Some CDNs reject hotlinked requests without a matching Referer.
+_REFERER_FOR_HOST = {
+    "i.pximg.net": "https://www.pixiv.net/",
+}
 
 
 def file_type(path: Path) -> str:
@@ -106,10 +112,11 @@ def _fetch_url(item: MediaItem, dest: Path) -> None:
             if url.endswith(".m3u8") or "playlist.m3u8" in url or url.endswith(".mpd") or "DASHPlaylist" in url:
                 _fetch_hls(url, dest)
             else:
-                req = urllib.request.Request(
-                    url,
-                    headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"},
-                )
+                headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+                referer = _REFERER_FOR_HOST.get(urllib.parse.urlparse(url).hostname or "")
+                if referer:
+                    headers["Referer"] = referer
+                req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, timeout=60) as resp:
                     with open(dest, "wb") as f:
                         shutil.copyfileobj(resp, f)

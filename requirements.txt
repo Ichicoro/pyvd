@@ -5,3 +5,4 @@ python-dotenv>=1.0.0
 atproto>=0.0.55
 aiohttp>=3.9
 beautifulsoup4>=4.12
+signalbot>=1.2.2
