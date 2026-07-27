@@ -24,6 +24,7 @@ import db
 from config import config
 from downloader import download_blocking, file_type
 from extractors import find_extractor
+from imgutil import compress_photo, TELEGRAM_PHOTO_LIMIT
 from urlutil import URL_RE, clean_url as _clean_url
 
 logger = logging.getLogger(__name__)
@@ -49,8 +50,30 @@ async def _chat_action(bot: Bot, chat_id: int, action: ChatAction):
             pass
 
 
-def _upload_action(files: list[Path]) -> ChatAction:
-    types = {file_type(f) for f in files}
+def _send_type(path: Path, force_document: bool = False) -> str:
+    """Like file_type(), but downgrades a photo to a document if it's still
+    over sendPhoto's size cap — only reachable if compress_photo() couldn't
+    open/compress it, since it otherwise guarantees the cap is met.
+
+    force_document sends everything as a document, uncompressed, at original
+    quality — used by the API's as_document option.
+    """
+    if force_document:
+        return "document"
+    ftype = file_type(path)
+    if ftype == "photo" and path.stat().st_size > TELEGRAM_PHOTO_LIMIT:
+        return "document"
+    return ftype
+
+
+def _compress_oversized_photos(files: list[Path]) -> None:
+    for f in files:
+        if file_type(f) == "photo":
+            compress_photo(f)
+
+
+def _upload_action(files: list[Path], force_document: bool = False) -> ChatAction:
+    types = {_send_type(f, force_document) for f in files}
     if types == {"photo"}:
         return ChatAction.UPLOAD_PHOTO
     if types == {"audio"}:
@@ -60,7 +83,7 @@ def _upload_action(files: list[Path]) -> ChatAction:
 
 async def _upload_get_file_id(bot: Bot, user_id: int, path: Path) -> str:
     """Send file to user DM silently to obtain a reusable file_id, then delete it."""
-    ftype = file_type(path)
+    ftype = _send_type(path)
     with open(path, "rb") as fh:
         if ftype == "video":
             msg = await bot.send_video(user_id, fh, disable_notification=True, write_timeout=120)
@@ -82,8 +105,8 @@ async def _upload_get_file_id(bot: Bot, user_id: int, path: Path) -> str:
     return file_id
 
 
-async def _send_to_chat(bot: Bot, chat_id: int, path: Path, caption: str | None = None) -> None:
-    ftype = file_type(path)
+async def _send_to_chat(bot: Bot, chat_id: int, path: Path, caption: str | None = None, force_document: bool = False) -> None:
+    ftype = _send_type(path, force_document)
     with open(path, "rb") as fh:
         if ftype == "video":
             await bot.send_video(chat_id, fh, supports_streaming=True, caption=caption, write_timeout=120)
@@ -95,9 +118,9 @@ async def _send_to_chat(bot: Bot, chat_id: int, path: Path, caption: str | None 
             await bot.send_document(chat_id, fh, caption=caption, write_timeout=120)
 
 
-async def _send_files_to_chat(bot: Bot, chat_id: int, files: list[Path], caption: str | None = None) -> None:
+async def _send_files_to_chat(bot: Bot, chat_id: int, files: list[Path], caption: str | None = None, force_document: bool = False) -> None:
     if len(files) == 1:
-        await _send_to_chat(bot, chat_id, files[0], caption=caption)
+        await _send_to_chat(bot, chat_id, files[0], caption=caption, force_document=force_document)
         return
 
     for i in range(0, len(files), MAX_ALBUM_SIZE):
@@ -108,7 +131,7 @@ async def _send_files_to_chat(bot: Bot, chat_id: int, files: list[Path], caption
             for j, path in enumerate(chunk):
                 fh = open(path, "rb")
                 opened.append(fh)
-                ftype = file_type(path)
+                ftype = _send_type(path, force_document)
                 item_caption = caption if j == 0 else None
                 if ftype == "video":
                     media_group.append(InputMediaVideo(fh, caption=item_caption))
@@ -122,8 +145,12 @@ async def _send_files_to_chat(bot: Bot, chat_id: int, files: list[Path], caption
                 fh.close()
 
 
-async def download_and_deliver(bot: Bot, chat_id: int, url: str) -> None:
-    """Download url and send resulting files to chat_id. Raises on failure."""
+async def download_and_deliver(bot: Bot, chat_id: int, url: str, as_document: bool = False) -> None:
+    """Download url and send resulting files to chat_id. Raises on failure.
+
+    as_document sends everything as an uncompressed document (original
+    quality, no Telegram photo/video preview) instead of a photo/video.
+    """
     extractor = find_extractor(url)
     if extractor is None:
         raise ValueError(f"Unsupported URL: {url}")
@@ -143,14 +170,17 @@ async def download_and_deliver(bot: Bot, chat_id: int, url: str) -> None:
         if not files:
             raise ValueError("No media found")
 
+        if not as_document:
+            await asyncio.to_thread(_compress_oversized_photos, files)
+
         sendable = [f for f in files if f.stat().st_size <= config.max_file_size]
         if not sendable:
             limit_mb = config.max_file_size // 1024 // 1024
             raise ValueError(f"All files exceed {limit_mb}MB limit")
 
         caption = extractor.reply_url(_clean_url(url)) if extractor.reply_url else _clean_url(url)
-        async with _chat_action(bot, chat_id, _upload_action(sendable)):
-            await _send_files_to_chat(bot, chat_id, sendable, caption=caption)
+        async with _chat_action(bot, chat_id, _upload_action(sendable, as_document)):
+            await _send_files_to_chat(bot, chat_id, sendable, caption=caption, force_document=as_document)
 
         skipped = len(files) - len(sendable)
         if skipped:
@@ -249,6 +279,8 @@ async def handle_chosen_inline_result(update: Update, context: ContextTypes.DEFA
             await bot.edit_message_text(inline_message_id=inline_message_id, text="❌ No media found.")
             return
 
+        await asyncio.to_thread(_compress_oversized_photos, files)
+
         sendable = [f for f in files if f.stat().st_size <= config.max_file_size]
         if not sendable:
             limit_mb = config.max_file_size // 1024 // 1024
@@ -264,7 +296,7 @@ async def handle_chosen_inline_result(update: Update, context: ContextTypes.DEFA
         # editMessageMedia with inline_message_id only accepts file_id, not uploads.
         # Upload the first file to the user's DM to obtain a file_id, then delete it.
         first = sendable[0]
-        ftype = file_type(first)
+        ftype = _send_type(first)
         file_id = await _upload_get_file_id(bot, user_id, first)
 
         if ftype == "video":

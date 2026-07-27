@@ -101,6 +101,13 @@ For now, there's only one endpoint: `/api/download`, which accepts a JSON body:
 { "url": "https://twitter.com/user/status/1234567890" }
 ```
 
+Optional fields:
+
+| Field | Description |
+|---|---|
+| `wait` | Wait for delivery before responding (default: `false`, fire-and-forget) |
+| `as_document` | Send media as uncompressed documents at original quality instead of photos/videos (default: `false`) |
+
 and requires an `Authorization` header with the API key: `Authorization: your_api_key_here`
 
 TODO: Rate limiting?

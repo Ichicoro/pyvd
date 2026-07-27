@@ -37,13 +37,17 @@ async def _download(request: web.Request) -> web.Response:
         url = "https://" + url
 
     wait = bool(body.get("wait", False))
+    as_document = bool(body.get("as_document", False))
     bot: Bot = request.app["bot"]
-    logger.info("API download request from user_id=%d url=%s wait=%s", user_id, url, wait)
+    logger.info(
+        "API download request from user_id=%d url=%s wait=%s as_document=%s",
+        user_id, url, wait, as_document,
+    )
 
     async def run():
         status = await bot.send_message(user_id, f"⬇️ Received API request to download `{url}`...", parse_mode="Markdown")
         try:
-            await download_and_deliver(bot, user_id, url)
+            await download_and_deliver(bot, user_id, url, as_document=as_document)
             await status.delete()
         except ValueError as exc:
             await status.delete()

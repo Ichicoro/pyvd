@@ -35,8 +35,11 @@ server.py        aiohttp HTTP server on port 5868
 extractors.py    Extractor registry — maps URL patterns to extractor modules
 downloader.py    download_blocking() / download() — wraps yt-dlp and custom extractors
 models.py        MediaItem, MediaResult dataclasses
+imgutil.py       lossless photo re-compression for Telegram's 10MB sendPhoto cap
 db.py            SQLite — stores user_id ↔ api_key
 ```
+
+Telegram enforces a 10MB limit on `sendPhoto` uploads, independent of `MAX_FILE_SIZE_MB`. Before sending, oversized photos go through `imgutil.compress_photo`: lossless re-encode first (stripped metadata, optimized entropy coding), then JPEG quality reduction, then downscaling as a last resort — always as a photo, never falling back to a document except in the (practically unreachable) case where compression itself fails.
 
 Downloads run in a thread (`asyncio.to_thread`) to avoid blocking the event loop. Each download gets a unique session directory under `DOWNLOAD_DIR`; it is deleted after delivery.
 
@@ -84,8 +87,9 @@ Headers:
 
 Body (JSON):
 ```json
-{ "url": "https://..." }
+{ "url": "https://...", "wait": false, "as_document": false }
 ```
+`wait` blocks the response until delivery finishes (default fire-and-forget). `as_document` skips photo compression and sends everything as an uncompressed document at original quality (default sends photos/videos normally, compressed to fit Telegram's caps as needed).
 
 Responses:
 - `200 OK` — media delivered to the user's Telegram chat
