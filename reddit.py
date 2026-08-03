@@ -31,9 +31,11 @@ def _instances() -> list[str]:
 
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    # Ask Redlib to serve the HLS (video+audio) source instead of the
-    # audio-less DASH mp4 fallback.
-    "Cookie": "use_hls=on",
+    # use_hls: ask Redlib to serve the HLS (video+audio) source instead of the
+    # audio-less DASH mp4 fallback. show_nsfw/blur_nsfw: without these, Redlib
+    # replaces the whole post with an NSFW interstitial page (no post_type
+    # marker, no media) instead of serving content.
+    "Cookie": "use_hls=on; show_nsfw=on; blur_nsfw=off",
 }
 
 _POST_TYPE_RE = re.compile(r"<!--\s*post_type:\s*(\w+)\s*-->")
