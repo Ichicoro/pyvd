@@ -59,6 +59,7 @@ EXTRACTORS: list[Extractor] = [
         pattern=re.compile(
             r"https?://(?:(?:www\.|m\.)?youtube\.com/(?:watch|shorts|live)|youtu\.be/)\S+"
         ),
+        cookies_file=config.youtube_cookies_file,
     ),
     Extractor(
         name="tumblr",

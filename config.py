@@ -14,6 +14,7 @@ class Config:
     instagram_cookies_file: str | None
     tiktok_cookies_file: str | None
     pixiv_cookies_file: str | None
+    youtube_cookies_file: str | None
     tumblr_api_key: str | None
     db_path: str
     allowed_user_ids: frozenset[int] | None
@@ -42,6 +43,7 @@ class Config:
             instagram_cookies_file=os.environ.get("INSTAGRAM_COOKIES_FILE"),
             tiktok_cookies_file=os.environ.get("TIKTOK_COOKIES_FILE"),
             pixiv_cookies_file=os.environ.get("PIXIV_COOKIES_FILE"),
+            youtube_cookies_file=os.environ.get("YOUTUBE_COOKIES_FILE"),
             tumblr_api_key=os.environ.get("TUMBLR_API_KEY"),
             db_path=os.environ.get("DB_PATH", "pyvd.db"),
             allowed_user_ids=allowed_user_ids,

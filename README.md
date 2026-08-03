@@ -29,18 +29,19 @@ Optional vars:
 | `INSTAGRAM_COOKIES_FILE` | Path to Netscape-format cookies file for Instagram |
 | `TIKTOK_COOKIES_FILE` | Path to Netscape-format cookies file for TikTok |
 | `PIXIV_COOKIES_FILE` | Path to Netscape-format cookies file for Pixiv (required for R-18 works) |
+| `YOUTUBE_COOKIES_FILE` | Path to Netscape-format cookies file for YouTube (optional, for age-gated/private content) |
 | `MAX_FILE_SIZE_MB` | Skip files larger than this (default: `50`) |
 | `SIGNAL_SERVICE` / `SIGNAL_PHONE_NUMBER` / `SIGNAL_ALLOWED_IDS` | Enables the Signal bot — see [Signal bot](#signal-bot-optional) below |
 | `REDLIB_SERVICE` | `host:port` of a self-hosted [Redlib](https://github.com/redlib-org/redlib) instance for Reddit support (the bundled `docker-compose.yml` runs one at `redlib:8080`). Tried before the public instance fallback list, since public instances are frequently behind bot-challenge walls. |
 
 #### Getting a cookies file
 
-Instagram (and some TikTok content) requires a logged-in session to fetch reliably.
+Instagram (and some TikTok/YouTube content) requires a logged-in session to fetch reliably.
 
 1. Install the [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) browser extension.
-2. Log into instagram.com (or tiktok.com) in that browser — make sure you're actually signed in, not just sitting on the login page.
+2. Log into instagram.com (or tiktok.com / youtube.com) in that browser — make sure you're actually signed in, not just sitting on the login page.
 3. Click the extension while on the site and export cookies for that domain to a file, e.g. `insta_cookies.txt`.
-4. Point `INSTAGRAM_COOKIES_FILE` (or `TIKTOK_COOKIES_FILE`) at that file's path.
+4. Point `INSTAGRAM_COOKIES_FILE` (or `TIKTOK_COOKIES_FILE` / `YOUTUBE_COOKIES_FILE`) at that file's path.
 
 For Instagram specifically, double-check the exported file contains a `sessionid` cookie for `.instagram.com` — without it you're not actually authenticated, and downloads will silently behave as if logged out. Cookies expire periodically; re-export when downloads start failing.
 
