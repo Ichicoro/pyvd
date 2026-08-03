@@ -18,6 +18,8 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | Tumblr | `tumblr.py` | Tumblr API |
 | Threads | `threads.py` | embed page scrape (BeautifulSoup) |
 | Pixiv | `pixiv.py` | Pixiv AJAX API (optional cookies for R-18) |
+| Reddit | `reddit.py` | Redlib instance scrape (self-hosted or public fallback) |
+| RedGifs | `redgifs.py` | RedGifs public API (temporary auth token) |
 | YouTube / Shorts | — | yt-dlp |
 | TikTok | — | yt-dlp (optional cookies) |
 

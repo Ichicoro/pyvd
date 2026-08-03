@@ -2,7 +2,7 @@
 
 Telegram bot that downloads media from social platforms and sends it back to you. Also exposes an HTTP API on port 5868 for external clients.
 
-Supports Twitter/X, Instagram, Bluesky, Tumblr, Threads, Pixiv, Reddit, YouTube/Shorts, and TikTok.
+Supports Twitter/X, Instagram, Bluesky, Tumblr, Threads, Pixiv, Reddit, RedGifs, YouTube/Shorts, and TikTok.
 
 Send a URL → get back a video, photo, or album. That's it.
 

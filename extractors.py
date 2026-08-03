@@ -12,6 +12,7 @@ import tumblr
 import threads
 import pixiv
 import reddit
+import redgifs
 from models import MediaResult
 
 
@@ -100,6 +101,15 @@ EXTRACTORS: list[Extractor] = [
             r"|https?://redd\.it/\S+"
         ),
         extract=reddit.extract,
+    ),
+    Extractor(
+        name="redgifs",
+        display_name="RedGifs",
+        pattern=re.compile(
+            r"https?://(?:www\.)?redgifs\.com/(?:watch|ifr)/[^-/?#\s.]+"
+            r"|https?://thumbs2\.redgifs\.com/[^-/?#\s.]+"
+        ),
+        extract=redgifs.extract,
     ),
 ]
 
