@@ -11,6 +11,7 @@ from typing import Callable, Generator
 
 import yt_dlp
 
+from cookieutil import readonly_cookies_copy
 from models import MediaItem, MediaResult
 
 logger = logging.getLogger(__name__)
@@ -158,11 +159,12 @@ def _do_ytdlp(url: str, dest: Path, cookies_file: str | None) -> list[Path]:
         "writethumbnail": False,
         "nopart": True,
     }
-    if cookies_file and Path(cookies_file).exists():
-        ydl_opts["cookiefile"] = cookies_file
+    with readonly_cookies_copy(cookies_file) as safe_cookies_file:
+        if safe_cookies_file and Path(safe_cookies_file).exists():
+            ydl_opts["cookiefile"] = safe_cookies_file
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
     files = sorted(
         p for p in dest.iterdir()

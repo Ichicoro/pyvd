@@ -14,6 +14,7 @@ import urllib.request
 
 import yt_dlp
 
+from cookieutil import readonly_cookies_copy
 from models import MediaItem, MediaResult
 
 logger = logging.getLogger(__name__)
@@ -301,11 +302,14 @@ def _gallery_dl_extract(url: str, cookies_file: str | None = None) -> MediaResul
     import gallery_dl.config as gdl_config
     import gallery_dl.job as gdl_job
 
-    if cookies_file and os.path.exists(cookies_file):
-        gdl_config.set(("extractor", "instagram"), "cookies", cookies_file)
+    with readonly_cookies_copy(cookies_file) as safe_cookies_file:
+        if safe_cookies_file and os.path.exists(safe_cookies_file):
+            gdl_config.set(("extractor", "instagram"), "cookies", safe_cookies_file)
+            gdl_config.set(("extractor", "instagram"), "cookies-update", False)
 
-    job = gdl_job.DataJob(url, file=None)
-    status = job.run()
+        job = gdl_job.DataJob(url, file=None)
+        status = job.run()
+
     if status:
         raise ValueError(f"gallery-dl job failed with status {status}")
 
@@ -337,11 +341,12 @@ def _gallery_dl_media(shortcode: str, cookies_file: str | None = None) -> MediaR
 
 def _ytdlp_media(shortcode: str, cookies_file: str | None = None) -> MediaResult:
     url = f"https://www.instagram.com/p/{shortcode}/"
-    ydl_opts: dict = {"quiet": True, "no_warnings": True, "skip_download": True}
-    if cookies_file:
-        ydl_opts["cookiefile"] = cookies_file
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+    with readonly_cookies_copy(cookies_file) as safe_cookies_file:
+        ydl_opts: dict = {"quiet": True, "no_warnings": True, "skip_download": True}
+        if safe_cookies_file:
+            ydl_opts["cookiefile"] = safe_cookies_file
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
 
     entries = info.get("entries") or [info]
     result = MediaResult()
