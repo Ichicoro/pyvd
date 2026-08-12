@@ -53,6 +53,8 @@ services:
       # (e.g. ~/.local/share/signal-cli) to reuse an already-registered
       # account; otherwise the account lives in the signal_data volume.
       - ${SIGNAL_CLI_DATA_DIR:-signal_data}:/home/.local/share/signal-cli
+    networks:
+      - bot
 
 volumes:
   db_data:
