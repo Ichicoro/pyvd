@@ -13,7 +13,11 @@ services:
     ports:
       - "5868:5868"
     depends_on:
-      - signal-cli-rest-api
+      # the sidecar takes ~15s to boot signal-cli into daemon mode; without
+      # service_healthy the bot starts first and logs connection errors until
+      # it catches up
+      signal-cli-rest-api:
+        condition: service_healthy
     networks:
       - bot
   
