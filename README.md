@@ -87,6 +87,14 @@ SIGNAL_ALLOWED_IDS=+15551234567    # optional: comma-separated phone numbers/UUI
 
 Both `SIGNAL_SERVICE` and `SIGNAL_PHONE_NUMBER` must be set for the Signal bot to start; otherwise pyvd runs Telegram-only. `SIGNAL_ALLOWED_IDS` gates direct messages — group messages are accepted from any member, so add the bot's number to a group to enable it there.
 
+**Use UUIDs in `SIGNAL_ALLOWED_IDS`, not phone numbers.** Senders who have Signal's phone number privacy enabled arrive with no number attached, so a `+number` entry never matches and their messages are dropped silently — the bot simply doesn't respond. To find someone's UUID, have them DM the bot once, then list the contacts signal-cli has seen:
+
+```bash
+docker compose exec signal-cli-rest-api curl -s localhost:8080/v1/contacts/+15551234567 | jq '.[] | {uuid, username, name: .profile.given_name}'
+```
+
+Match on `username` or profile name and add that `uuid` to the allowlist.
+
 **3. Restart**
 
 ```bash
