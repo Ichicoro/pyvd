@@ -10,8 +10,24 @@ logger = logging.getLogger(__name__)
 STATUS_API = "https://status.d420.de/api/v1/instances"
 REPLY_HOST = "https://nitter.net"
 
+# Known Nitter mirrors, treated as Twitter/X links wherever tweet URLs are matched.
+KNOWN_DOMAINS = [
+    "twitter.com", "x.com", "t.co",
+    "nitter.net", "xcancel.com", "nitter.poast.org", "nitter.privacyredirect.com",
+    "nitter.tiekoetter.com", "lightbrd.com", "nitter.catsarch.com", "nitter.kareem.one",
+    "girlcockx.com",
+]
+
+TWITTER_URL_PATTERN = re.compile(
+    r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com|" +
+    "|".join(re.escape(d) for d in KNOWN_DOMAINS if d not in ("twitter.com", "x.com")) +
+    r")/\S+"
+)
+
 _TWITTER_PATH_RE = re.compile(
-    r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com)(.*)"
+    r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com|" +
+    "|".join(re.escape(d) for d in KNOWN_DOMAINS if d not in ("twitter.com", "x.com")) +
+    r")(.*)"
 )
 
 _cache: list[str] = []

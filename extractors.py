@@ -31,12 +31,7 @@ EXTRACTORS: list[Extractor] = [
     Extractor(
         name="twitter",
         display_name="Twitter/X",
-        pattern=re.compile(
-            r"https?://(?:(?:fx|vx|fixup)?(?:twitter|x)\.com|t\.co"
-            r"|nitter\.net|xcancel\.com|nitter\.poast\.org|nitter\.privacyredirect\.com"
-            r"|nitter\.tiekoetter\.com|lightbrd\.com|nitter\.catsarch\.com|nitter\.kareem\.one"
-            r"|girlcockx\.com)/\S+"
-        ),
+        pattern=nitter.TWITTER_URL_PATTERN,
         reply_url=nitter.twitter_reply_url,
         extract=twitter.extract,
     ),
