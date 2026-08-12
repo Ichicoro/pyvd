@@ -10,7 +10,7 @@ import db
 from config import config
 from handlers import handle_apikey, handle_chosen_inline_result, handle_inline_loading_callback, handle_inline_query, handle_message, handle_resetapikey
 from server import start_server
-from signal_handlers import DownloadCommand
+from signal_handlers import DownloadHandler
 
 logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
@@ -41,7 +41,7 @@ async def _run() -> None:
             }
         )
         contacts = list(config.signal_allowed_ids) if config.signal_allowed_ids else True
-        signal_bot.register(DownloadCommand(), contacts=contacts, groups=True)
+        signal_bot.register(DownloadHandler(), contacts=contacts, groups=True)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
