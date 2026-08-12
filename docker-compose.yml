@@ -49,7 +49,10 @@ services:
     environment:
       MODE: json-rpc
     volumes:
-      - signal_data:/home/.local/share/signal-cli
+      # Set SIGNAL_CLI_DATA_DIR to an existing host signal-cli config dir
+      # (e.g. ~/.local/share/signal-cli) to reuse an already-registered
+      # account; otherwise the account lives in the signal_data volume.
+      - ${SIGNAL_CLI_DATA_DIR:-signal_data}:/home/.local/share/signal-cli
 
 volumes:
   db_data:

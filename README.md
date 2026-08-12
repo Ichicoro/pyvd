@@ -69,11 +69,12 @@ pyvd can also run as a Signal bot alongside the Telegram bot, watching DMs and g
 
 The sidecar container needs a registered Signal account before the bot can use it. With the stack running (`docker compose up -d`), either:
 
-- **Link as a secondary device** (easiest — reuses your existing Signal account):
+- **Reuse an existing host `signal-cli` account** (if you already have one registered/linked on the machine): set `SIGNAL_CLI_DATA_DIR` to its config dir (absolute path, typically `/home/youruser/.local/share/signal-cli`) and the sidecar bind-mounts it instead of using its own volume. The container runs signal-cli as uid 1000 and chowns the directory on startup, so this is cleanest when your host user is also uid 1000. Only one process may use an account at a time — once the sidecar is running, stop invoking `signal-cli` on the host against that account, or you'll corrupt the session state.
+- **Link as a secondary device** (reuses your Signal account without touching the host install):
   ```bash
   curl "http://localhost:8080/v1/qrcodelink?device_name=pyvd"
   ```
-  Open the returned URL in a browser to render the QR code, then scan it from Signal's "Link a device" screen on your phone.
+  Open the returned URL in a browser to render the QR code, then scan it from Signal's "Link a device" screen on your phone. Note that `docker-compose.yml` doesn't publish the sidecar's port, so run this from inside the network — `docker compose exec signal-cli-rest-api curl -s "localhost:8080/v1/qrcodelink?device_name=pyvd"` — or add a temporary `ports:` mapping.
 - **Register a new number**: follow the sidecar's [registration docs](https://github.com/bbernhard/signal-cli-rest-api#registration) (requires SMS/voice verification).
 
 **2. Configure**
