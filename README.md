@@ -85,7 +85,7 @@ SIGNAL_PHONE_NUMBER=+15551234567   # the number registered/linked above
 SIGNAL_ALLOWED_IDS=+15551234567    # optional: comma-separated phone numbers/UUIDs allowed to DM the bot
 ```
 
-Both `SIGNAL_SERVICE` and `SIGNAL_PHONE_NUMBER` must be set for the Signal bot to start; otherwise pyvd runs Telegram-only. `SIGNAL_ALLOWED_IDS` gates direct messages — group messages are accepted from any member, so add the bot's number to a group to enable it there.
+Both `SIGNAL_SERVICE` and `SIGNAL_PHONE_NUMBER` must be set for the Signal bot to start; otherwise pyvd runs Telegram-only. `SIGNAL_ALLOWED_IDS` gates the *sender* everywhere — in DMs and in groups alike. Add the bot's number to a group to enable it there; members not on the allowlist are ignored. Leaving `SIGNAL_ALLOWED_IDS` unset lets anyone use the bot.
 
 **Use UUIDs in `SIGNAL_ALLOWED_IDS`, not phone numbers.** Senders who have Signal's phone number privacy enabled arrive with no number attached, so a `+number` entry never matches and their messages are dropped silently — the bot simply doesn't respond. To find someone's UUID, have them DM the bot once, then list the contacts signal-cli has seen:
 

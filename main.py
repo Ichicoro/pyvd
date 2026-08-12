@@ -42,8 +42,13 @@ async def _run() -> None:
                 "logging_level": logging.INFO,
             }
         )
-        contacts = list(config.signal_allowed_ids) if config.signal_allowed_ids else True
-        signal_bot.register(DownloadHandler(), contacts=contacts, groups=True)
+        allowed = config.signal_allowed_ids
+        contacts = list(allowed) if allowed else True
+        # signalbot applies the contacts allowlist to DMs only, so groups=True would
+        # otherwise let any member of any group the bot is in use it. The filter
+        # re-checks the sender for every message, group or not.
+        sender_allowed = (lambda m: m.source_uuid in allowed or m.source_number in allowed) if allowed else None
+        signal_bot.register(DownloadHandler(), contacts=contacts, groups=True, f=sender_allowed)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
