@@ -38,6 +38,8 @@ async def _run() -> None:
             {
                 "signal_service": config.signal_service,
                 "phone_number": config.signal_phone_number,
+                # signalbot defaults to WARNING, which hides received messages
+                "logging_level": logging.INFO,
             }
         )
         contacts = list(config.signal_allowed_ids) if config.signal_allowed_ids else True
