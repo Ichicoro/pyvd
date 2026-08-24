@@ -23,7 +23,15 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | YouTube / Shorts | — | yt-dlp |
 | TikTok | — | yt-dlp (optional cookies) |
 
-`instagram.py` is a thin dispatcher: with `APIFY_TOKEN` set it runs the Apify actor shahidirfan/Instagram-Video-Downloader (actor id `mGz1tKemfhpbQTkBv`) first and falls back to the legacy cookie-based chain on any failure; without a token it goes straight to the legacy chain. The actor handles posts, Reels, IGTV and stories, photos included: a run is made with `downloadMethod: "auto"` (yt-dlp first) and, if that yields no media, retried with `"browser"`, which reads direct media URLs off the page and is how image posts come through. Media type per item comes from `file_extension` / `downloaded_format` / URL extension / `duration`, with a Content-Type HEAD probe as last resort — it decides the on-disk extension, and so whether Telegram gets sendPhoto or sendVideo.
+`instagram.py` is a thin dispatcher: with `APIFY_TOKEN` set it runs the Apify actor shahidirfan/Instagram-Video-Downloader (actor id `mGz1tKemfhpbQTkBv`) and falls back to the legacy cookie-based chain if the actor fails; without a token it goes straight to the legacy chain.
+
+Actor quirks, all verified against live runs:
+
+- `download_url` points at the run's key-value store and **403s without the API token**, so the token is appended to the URL before it reaches `downloader.py`.
+- Records are named `.mp4` and served as `Content-Type: video/mp4` even when they hold a JPEG, so `instagram_apify._media_type` decides by sniffing the first 32 bytes; item metadata is only a fallback.
+- The item's `url` field is the *input post URL*, not media — never use it as one.
+- Photos come back at 640px and a carousel yields only its first slide, so when every item is a photo the dispatcher upgrades via `instagram_legacy.extract_fast` (GQL → embed only, the two cheap methods) and keeps the Apify media if that fails.
+- A run where every URL fails ends `FAILED` but still writes per-URL error records; the dataset is read regardless of status. A run yielding no media is retried with `downloadMethod: "browser"`.
 
 In the legacy chain, Instagram share URLs (`/share/...`) are resolved via redirect before extraction, and stories go through gallery-dl directly (needs a valid `sessionid` cookie).
 

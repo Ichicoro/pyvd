@@ -25,7 +25,8 @@ POLARIS_ACTION = "PolarisPostActionLoadPostQueryQuery"
 _BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 _ALPHA_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-SHORTCODE_RE = re.compile(r"(?:dd)?instagram\.com/(?:p|reel|reels|tv)/([a-zA-Z0-9_-]+)")
+# posts also appear with the author in the path: instagram.com/<user>/p/<code>
+SHORTCODE_RE = re.compile(r"(?:dd)?instagram\.com/(?:[A-Za-z0-9._]+/)?(?:p|reel|reels|tv)/([a-zA-Z0-9_-]+)")
 STORY_RE = re.compile(r"(?:dd)?instagram\.com/stories/[a-zA-Z0-9._]+/(\d+)")
 SHARE_RE = re.compile(r"(?:dd)?instagram\.com/share/(?:(?:reel|video|s|p)/)?([^/?]+)")
 CONTEXT_JSON_RE = re.compile(r'"contextJSON"\s*:\s*"((?:[^"\\]|\\.)*)"')
@@ -364,7 +365,42 @@ def _ytdlp_media(shortcode: str, cookies_file: str | None = None) -> MediaResult
     return result
 
 
-# ── public entry point ─────────────────────────────────────────────────────────
+# ── public entry points ────────────────────────────────────────────────────────
+
+def extract_fast(url: str) -> MediaResult:
+    """GQL then embed only — the two cheap HTTP methods, no gallery-dl/yt-dlp.
+
+    Used to upgrade photo posts the Apify actor served at 640px (and truncated
+    to a carousel's first slide); not worth spending the slow methods on.
+    """
+    from config import config
+
+    m = SHORTCODE_RE.search(url)
+    if not m:
+        raise ValueError(f"could not extract Instagram shortcode from: {url}")
+    shortcode = m.group(1)
+
+    real_cookies: dict[str, str] | None = None
+    cookies_file = config.instagram_cookies_file
+    if cookies_file and os.path.exists(cookies_file):
+        try:
+            _, real_cookies = _load_ig_cookies(cookies_file)
+        except Exception as exc:
+            logger.warning("Failed to load Instagram cookies: %s", exc)
+
+    errors: list[str] = []
+    for name, method in [
+        ("GQL", lambda: _gql_media(shortcode, real_cookies)),
+        ("embed", lambda: _embed_media(shortcode, real_cookies=real_cookies)),
+    ]:
+        try:
+            return method()
+        except Exception as exc:
+            errors.append(f"{name}: {exc}")
+    raise RuntimeError("; ".join(errors))
+
+
+
 
 def extract(url: str) -> MediaResult:
     from config import config
