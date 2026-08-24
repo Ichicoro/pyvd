@@ -38,7 +38,7 @@ Optional vars:
 
 #### Getting a cookies file
 
-Instagram downloads go through the Apify actor when `APIFY_TOKEN` is set; the old cookie-based chain stays as a fallback (and handles photo posts and stories, which the actor doesn't).
+Instagram downloads go through the Apify actor when `APIFY_TOKEN` is set — posts, Reels, IGTV and stories, photos and videos alike. The old cookie-based chain stays as a fallback for anything the actor can't fetch.
 
 Instagram (and some TikTok/YouTube content) requires a logged-in session to fetch reliably.
 

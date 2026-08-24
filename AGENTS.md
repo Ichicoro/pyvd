@@ -23,7 +23,7 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | YouTube / Shorts | — | yt-dlp |
 | TikTok | — | yt-dlp (optional cookies) |
 
-`instagram.py` is a thin dispatcher: with `APIFY_TOKEN` set it runs the Apify actor shahidirfan/Instagram-Video-Downloader (actor id `mGz1tKemfhpbQTkBv`) first and falls back to the legacy cookie-based chain on any failure; without a token it goes straight to the legacy chain. The actor is video-oriented, so photo posts and stories generally land on the fallback.
+`instagram.py` is a thin dispatcher: with `APIFY_TOKEN` set it runs the Apify actor shahidirfan/Instagram-Video-Downloader (actor id `mGz1tKemfhpbQTkBv`) first and falls back to the legacy cookie-based chain on any failure; without a token it goes straight to the legacy chain. The actor handles posts, Reels, IGTV and stories, photos included: a run is made with `downloadMethod: "auto"` (yt-dlp first) and, if that yields no media, retried with `"browser"`, which reads direct media URLs off the page and is how image posts come through. Media type per item comes from `file_extension` / `downloaded_format` / URL extension / `duration`, with a Content-Type HEAD probe as last resort — it decides the on-disk extension, and so whether Telegram gets sendPhoto or sendVideo.
 
 In the legacy chain, Instagram share URLs (`/share/...`) are resolved via redirect before extraction, and stories go through gallery-dl directly (needs a valid `sessionid` cookie).
 
