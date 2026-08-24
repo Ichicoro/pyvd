@@ -26,7 +26,9 @@ Optional vars:
 |---|---|
 | `TUMBLR_API_KEY` | Tumblr v2 API key (required for Tumblr support) |
 | `ALLOWED_USER_IDS` | Comma-separated Telegram user IDs to whitelist |
-| `INSTAGRAM_COOKIES_FILE` | Path to Netscape-format cookies file for Instagram |
+| `APIFY_TOKEN` | Apify API token — enables the Apify Instagram actor (primary Instagram path) |
+| `APIFY_INSTAGRAM_ACTOR` | Apify actor id for Instagram (default `mGz1tKemfhpbQTkBv`, shahidirfan/Instagram-Video-Downloader) |
+| `INSTAGRAM_COOKIES_FILE` | Path to Netscape-format cookies file for Instagram (legacy fallback chain) |
 | `TIKTOK_COOKIES_FILE` | Path to Netscape-format cookies file for TikTok |
 | `PIXIV_COOKIES_FILE` | Path to Netscape-format cookies file for Pixiv (required for R-18 works) |
 | `YOUTUBE_COOKIES_FILE` | Path to Netscape-format cookies file for YouTube (optional, for age-gated/private content) |
@@ -35,6 +37,8 @@ Optional vars:
 | `REDLIB_SERVICE` | `host:port` of a self-hosted [Redlib](https://github.com/redlib-org/redlib) instance for Reddit support (the bundled `docker-compose.yml` runs one at `redlib:8080`). Tried before the public instance fallback list, since public instances are frequently behind bot-challenge walls. |
 
 #### Getting a cookies file
+
+Instagram downloads go through the Apify actor when `APIFY_TOKEN` is set; the old cookie-based chain stays as a fallback (and handles photo posts and stories, which the actor doesn't).
 
 Instagram (and some TikTok/YouTube content) requires a logged-in session to fetch reliably.
 

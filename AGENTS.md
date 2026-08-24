@@ -13,7 +13,7 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | Platform | Extractor | Method |
 |---|---|---|
 | Twitter/X | `twitter.py` | fxtwitter API |
-| Instagram | `instagram.py` | GQL → embed page → IGram → yt-dlp (fallback chain) |
+| Instagram | `instagram.py` | Apify actor (`instagram_apify.py`) → legacy chain (`instagram_legacy.py`: GQL → embed page → gallery-dl → yt-dlp) |
 | Bluesky | `bluesky.py` | AT Protocol public API |
 | Tumblr | `tumblr.py` | Tumblr API |
 | Threads | `threads.py` | embed page scrape (BeautifulSoup) |
@@ -23,7 +23,9 @@ An HTTP API (port 5868) lets external clients trigger downloads via an API key.
 | YouTube / Shorts | — | yt-dlp |
 | TikTok | — | yt-dlp (optional cookies) |
 
-Instagram share URLs (`/share/...`) are resolved via redirect before extraction. Instagram stories use the IGram story endpoint directly.
+`instagram.py` is a thin dispatcher: with `APIFY_TOKEN` set it runs the Apify actor shahidirfan/Instagram-Video-Downloader (actor id `mGz1tKemfhpbQTkBv`) first and falls back to the legacy cookie-based chain on any failure; without a token it goes straight to the legacy chain. The actor is video-oriented, so photo posts and stories generally land on the fallback.
+
+In the legacy chain, Instagram share URLs (`/share/...`) are resolved via redirect before extraction, and stories go through gallery-dl directly (needs a valid `sessionid` cookie).
 
 Twitter URLs are replied to with a nitter URL (`nitter.py`).
 
@@ -52,7 +54,9 @@ Downloads run in a thread (`asyncio.to_thread`) to avoid blocking the event loop
 | `BOT_TOKEN` | yes | — | Telegram bot token |
 | `TUMBLR_API_KEY` | no | — | Tumblr v2 API key |
 | `ALLOWED_USER_IDS` | no | — | Comma-separated Telegram user IDs; if set, all other users are ignored |
-| `INSTAGRAM_COOKIES_FILE` | no | — | Path to Netscape-format cookies for Instagram |
+| `APIFY_TOKEN` | no | — | Apify API token; enables the Apify actor as the primary Instagram path |
+| `APIFY_INSTAGRAM_ACTOR` | no | `mGz1tKemfhpbQTkBv` | Apify actor id used for Instagram |
+| `INSTAGRAM_COOKIES_FILE` | no | — | Path to Netscape-format cookies for Instagram (legacy chain) |
 | `TIKTOK_COOKIES_FILE` | no | — | Path to Netscape-format cookies for TikTok |
 | `PIXIV_COOKIES_FILE` | no | — | Path to Netscape-format cookies for Pixiv (needed for R-18 works) |
 | `DOWNLOAD_DIR` | no | `/tmp/pyvd` | Temp directory for downloads |

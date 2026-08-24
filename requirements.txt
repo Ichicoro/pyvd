@@ -7,3 +7,4 @@ aiohttp>=3.9
 beautifulsoup4>=4.12
 signalbot>=2.0.0
 Pillow>=10.0
+apify-client>=1.8

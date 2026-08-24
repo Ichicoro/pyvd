@@ -12,6 +12,8 @@ class Config:
     download_dir: str
     max_file_size: int
     instagram_cookies_file: str | None
+    apify_token: str | None
+    apify_instagram_actor: str
     tiktok_cookies_file: str | None
     pixiv_cookies_file: str | None
     youtube_cookies_file: str | None
@@ -41,6 +43,8 @@ class Config:
             download_dir=os.environ.get("DOWNLOAD_DIR", "/tmp/pyvd"),
             max_file_size=int(os.environ.get("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024,
             instagram_cookies_file=os.environ.get("INSTAGRAM_COOKIES_FILE"),
+            apify_token=os.environ.get("APIFY_TOKEN") or None,
+            apify_instagram_actor=os.environ.get("APIFY_INSTAGRAM_ACTOR", "mGz1tKemfhpbQTkBv"),
             tiktok_cookies_file=os.environ.get("TIKTOK_COOKIES_FILE"),
             pixiv_cookies_file=os.environ.get("PIXIV_COOKIES_FILE"),
             youtube_cookies_file=os.environ.get("YOUTUBE_COOKIES_FILE"),
