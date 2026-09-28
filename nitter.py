@@ -8,7 +8,7 @@ import urllib.request
 logger = logging.getLogger(__name__)
 
 STATUS_API = "https://status.d420.de/api/v1/instances"
-REPLY_HOST = "https://nitter.net"
+REPLY_HOST = "https://xitter.zelda.sh"
 
 # Known Nitter mirrors, treated as Twitter/X links wherever tweet URLs are matched.
 KNOWN_DOMAINS = [
